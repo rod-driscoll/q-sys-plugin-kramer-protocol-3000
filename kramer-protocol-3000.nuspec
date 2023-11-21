@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- Initially generated manually using `nuget spec`-->
+<package >
+  <metadata>
+    <id>Kramer-protocol-3000</id>
+    <version>1.0.0</version>
+    <title>Kramer Protocol 3000</title>
+    <authors>Rod Driscoll</authors>
+    <owners>Rod Driscoll</owners>
+    <license type="expression">GPL-3.0-or-later</license>
+    <projectUrl>https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000</projectUrl>
+    <iconUrl>http://content/images/Kramer-logo.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Kramer Procotol 3000 Plugin</description>
+    <releaseNotes>AutoGenerateFromGitCommitMessages</releaseNotes>
+    <copyright>Copyright 2023</copyright>
+    <tags>Kramer Protocol 3000</tags>
+    <summary>Kramer Protocol 3000</summary>
+  </metadata>
+  <files>
+    <file src="content\**" target="content" />
+  </files>
+</package>

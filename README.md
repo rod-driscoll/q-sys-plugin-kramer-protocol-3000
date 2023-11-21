@@ -7,6 +7,9 @@ Platform: Q-Sys\
 
 Source code location: <https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000>
 
+![Settings tab](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/content/images/ui-tab-settings.png)\
+![Matrix switcher tab](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/content/images/ui-tab-matrix-switcher.png)
+
 ## Deploying code
 
 Instructions and resources for Q-Sys plugin development is available at:
@@ -19,8 +22,8 @@ Do not edit the *.qplug file directly, this is created using the compiler.
 
 ### Development and testing
 
-The files in "./DEV/" are for dev only and may not be the most current code, they were created from the main *.qplug file following these instructions for run-time debugging:
-(Debugging Run-time Code)<https://q-syshelp.qsc.com/DeveloperHelp/#Getting_Started/Building_a_Plugin.htm?TocPath=Getting%2520Started%257C_____3>
+The files in "./DEV/" are for dev only and may not be the most current code, they were created from the main *.qplug file following these instructions for run-time debugging:\
+[Debugging Run-time Code](https://q-syshelp.qsc.com/DeveloperHelp/#Getting_Started/Building_a_Plugin.htm?TocPath=Getting%2520Started%257C_____3)
 
 ## Features
 

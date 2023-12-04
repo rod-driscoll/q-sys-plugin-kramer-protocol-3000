@@ -3,7 +3,7 @@
 Q-SYS plugin for Kramer Protocol 3000
 
 Language: Lua\
-Platform: Q-Sys\
+Platform: Q-Sys
 
 Source code location: <https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000>
 
@@ -27,21 +27,23 @@ The files in "./DEV/" are for dev only and may not be the most current code, the
 
 ## Features
 
+### Features tested and functional
+
 * Video matrix switching
+* Displaying device information (MAC, SN, FW, Hostname)
+  
+### Features not tested
+
 * Input and output gain
 * Output audio mute (Protocol doesn't support input audio mute)
 * Output video disable (audio blank not supported)
+* Serial control
 
 ### Features not implemented
 
 * Authentication
 * HDCP enable and status
 * Audio embed
-
-### Features not tested
-
-* Not tested on hardware.
-* Serial control
 
 ## References
 
@@ -52,4 +54,4 @@ The files in "./DEV/" are for dev only and may not be the most current code, the
 
 ## Contributors
 
-Author: <rod@theavitgroup.com.au>
+Author: Rod Driscoll <rod@theavitgroup.com.au>

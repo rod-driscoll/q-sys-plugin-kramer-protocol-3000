@@ -1,5 +1,5 @@
 
-local helper = require('helpers')
+local helper = require('Helpers')
 
 -- Control aliases
 Status = Controls.Status
@@ -33,17 +33,20 @@ TimeoutCount = 0
 
 
 	local Request = {
-		Status			={Command="",			Data=""},
+		Status			={Command="", Valid=true,			Data=""},
 		AudioEmbedding	={Command="AUD-EMB",	Data=""},
+		--AudioRoute	={Command="AUD",	Data=""},
 		AudioLevel		={Command="AUD-LVL",	Data=""},
 		AudioLevelRange	={Command="AUD-LVL-RANGE",Data=""},
 		AudioSignalPresent={Command="AUD-SIGNAL",Data=""},
 		AVRoute	={Command="AV",	Data=""},
 		AutoSwitchMode	={Command="AV-SW-MODE",	Data=""},
 		AutoSwitchTimeout={Command="AV-SW-TIMEOUT",Data=""},
+		Balance		={Command="BALANCE",Data=""},
+		--Baud		={Command="BAUD",Data=""},
 		DeviceInfo		={Command="BEACON-INFO",Data=""},
 		BuildDate		={Command="BUILD-DATE",	Data=""},
-		CopyEDIDSet		={Command="CPEDID",		Data=""},
+		--CopyEDIDSet		={Command="CPEDID",		Data=""},
 		HPD				={Command="DISPLAY",	Data=""},
 		DipSwitch		={Command="DPSW-STATUS",Data=""},
 		EthernetPort	={Command="ETH-PORT",	Data=""},
@@ -52,9 +55,9 @@ TimeoutCount = 0
 		FPGAVersion		={Command="FPGA-VER",	Data=""},
 		HDCPMode		={Command="HDCP-MOD",	Data=""},
 		HDCPStatus		={Command="HDCP-STAT",	Data=""},
-		Help			={Command="HELP",		Data=""},
+		Help			={Command="HELP", Valid=true,		Data=""},
 		LockEDID		={Command="LOCK-EDID",	Data=""},
-		Login			={Command="LOGIN",		Data=""},
+		Login			={Command="LOGIN", Valid=true,		Data=""},
 		Logout			={Command="LOGOUT",		Data=""},
 		Model			={Command="MODEL",		Data=""},
 		Mute			={Command="MUTE",		Data=""},
@@ -69,15 +72,16 @@ TimeoutCount = 0
 		Password		={Command="PASS",		Data=""},
 		ProtocolVersion	={Command="PROT-VER",	Data=""},
 		Reset			={Command="RESET",		Data=""},
-		Route			={Command="ROUTE",		Data=""},
+		Route			={Command="ROUTE", Valid=true,		Data=""},
 		Security		={Command="SECUR",		Data=""},
 		SignalPresent	={Command="SIGNAL",		Data=""},
 		SerialNumber	={Command="SN",			Data=""},
 		Time			={Command="TIME",		Data=""},
 		TimeZone		={Command="TIME-LOC",	Data=""},
 		TimeServer		={Command="TIME-SRV",	Data=""},
-		DeviceFirmware	={Command="VERSION",	Data=""},
+		--Uart		={Command="UART",	Data=""},
 		VGAPhase		={Command="VGA-PHASE",	Data=""},
+		DeviceFirmware ={Command="VERSION",	Data=""},
 		VideoMute		={Command="VMUTE",		Data=""},
 }
 
@@ -105,6 +109,7 @@ function ClearVariables()
 	Controls["ModelName"].String = ""
 	Controls["DeviceName"].String = ""
 	Controls["MACAddress"].String = ""
+	Controls["HostName"].String = ""
 	DataBuffer = ""
 	CommandQueue = {}
 end
@@ -182,7 +187,10 @@ end
 -- Take a request object and queue it for sending.  Object format is of:
 --  { Command=string, Data={string} }
 function Send(cmd, sendImmediately)
-	if DebugFunction then print("DoSend() Called") end
+	if DebugFunction then print("DoSend("..cmd.Command..") Called") end
+	if cmd['Valid']~=nil then 
+		print(cmd.Command..' is valid')
+	end
 	local value = "#".. cmd.Command
 	if string.len(cmd.Data)>0 then value = value.." "..cmd.Data end
 	value = string.format("%s\x0d",value)
@@ -226,7 +234,7 @@ if ConnectionType == "Serial" then
 
 	--Send the display the next command off the top of the queue
 	function SendNextCommand()
-	if DebugFunction then print("SendNextCommand() Called") end
+	if DebugFunction then print("SendNextCommand("..CommandProcessing..") Called") end
 	if CommandProcessing then
 		-- Do Nothing
 	elseif #CommandQueue > 0 then
@@ -271,7 +279,13 @@ if ConnectionType == "Serial" then
 		CommandProcessing = false
 		local msg = DataBuffer .. Comms:Read(1024)
 		DataBuffer = "" 
-		if DebugTx then print("Received: "..GetPrintableHexString(msg)) end
+		if DebugRx then 
+			if msg:len() < 50 then
+				print("Received["..#msg.."]: "..GetPrintableHexString(msg))
+			else
+				print("Received["..#msg.."]: "..msg:sub(1,50))
+			end 
+		end
 		ParseResponse(msg)
 		SendNextCommand()
 	end
@@ -344,19 +358,21 @@ else
 	function Connect()
 		if DebugFunction then print("Connect() Called") end
 		if Controls.IPAddress.String ~= "Enter an IP Address" and Controls.IPAddress.String ~= "" then
-		if Comms.IsConnected then
-			Comms:Disconnect()
-		end
-		Comms:Connect(Controls.IPAddress.String, Controls.TcpPort.Value)
+			if Comms.IsConnected then
+				Comms:Disconnect()
+			end
+			Comms:Connect(Controls.IPAddress.String, Controls.TcpPort.Value)
 		else
-		ReportStatus("MISSING","No IP Address or Port")
+			ReportStatus("MISSING","No IP Address or Port")
 		end
 	end
 		
 	-- Handle events from the socket;  Nearly identical to Serial
 	Comms.EventHandler = function(sock, evt, err)
-		--if DebugFunction then print("Ethernet Socket Handler Called") end
+		if DebugFunction then print("Ethernet Socket EventHandler: "..tostring(evt)) end
+
 		if evt == TcpSocket.Events.Connected then
+			if DebugRx then print("Connected "..tostring(evt)) end
 			ReportStatus("OK","")
 			Connected()
 		elseif evt == TcpSocket.Events.Reconnect then
@@ -372,20 +388,29 @@ else
 			while (line ~= nil) do
 				msg = msg..line
 				line = sock:Read(BufferLength)
+			end 
+			if DebugRx then 
+				if msg:len() < 50 then
+					print("Received["..#msg.."]: "..GetPrintableHexString(msg))
+				else
+					print("Received["..#msg.."]: "..msg:sub(1,50))
+				end 
 			end
-			if DebugTx then print("Received: "..GetPrintableHexString(msg)) end
 			ParseResponse(msg)  
 			SendNextCommand()
 		
 		elseif evt == TcpSocket.Events.Closed then
+			if DebugRx then print("Disconnected "..tostring(evt)) end
 			Disconnected()
 			ReportStatus("MISSING","Socket closed")
 	
 		elseif evt == TcpSocket.Events.Error then
+			if DebugRx then print("Socket error "..tostring(err)) end
 			Disconnected()
 			ReportStatus("MISSING","Socket error")
 		
 		elseif evt == TcpSocket.Events.Timeout then
+			if DebugRx then print("Socket timeout error "..tostring(err)) end
 			TimeoutCount = TimeoutCount + 1
 			if TimeoutCount > 3 then
 				Disconnected()
@@ -393,6 +418,7 @@ else
 			end
 	
 		else
+			if DebugRx then print("Socket unknown  "..tostring(err)) end
 			Disconnected()
 			ReportStatus("MISSING",err)
 		end
@@ -401,23 +427,21 @@ else
 	--Ethernet specific event handlers
 	Controls["IPAddress"].EventHandler = function()
 		if DebugFunction then print("IP Address Event Handler Called") end
-		if Controls["IPAddress"].String == "" then
-		Controls["IPAddress"].String = "Enter an IP Address"
-		end
+		if Controls["IPAddress"].String == "" then Controls["IPAddress"].String = "Enter an IP Address" end
 		ClearVariables()
-		Init()
+		Initialize()
 	end
 
 	Controls["TcpPort"].EventHandler = function()
 		if DebugFunction then print("Port Event Handler Called") end
 		ClearVariables()
-		Init()
+		Initialize()
 	end
 
 	Controls["DeviceID"].EventHandler = function()
 		if DebugFunction then print("DeviceID Event Handler Called") end
 		ClearVariables()
-		Init()
+		Initialize()
 	end
 
 end
@@ -535,16 +559,23 @@ local function QueryRoutes()
 end
 
 function Connected()
-	if DebugFunction then print("Connected() Called") end
-		CommunicationTimer:Stop()
-		Heartbeat:Start(PollRate)
-		CommandProcessing = false
-		QueryRoutes()
-		Send({Command = Request["Status"].Command, Data = ""})
-		Query({Command = Request["HostName"].Command, Data = ""})
-		if Controls['MACAddress'].String==nil or string.len(Controls['MACAddress'].String)<1 then GetDeviceInfo() end
-		SendNextCommand()
+	if DebugFunction or DebugRx then print("Connected() Called") end
+	CommunicationTimer:Stop()
+	CommandProcessing = false
+	if Controls['DeviceID'].Value==nil or tonumber(Controls['DeviceID'].Value)==0 then Send({Command = Request["Status"].Command, Data = ""}) end
+	--Send({Command = Request["Help"].Command, Data = ""})
+	Heartbeat:Start(PollRate)   
+	QueryRoutes()
+	if #CommandQueue < 1 then
+		for i = 1, Properties['Input Count'].Value do
+			Query({ Command=Request["SignalPresent"].Command, Data=tostring(i) })
+			Query({ Command=Request["AudioSignalPresent"].Command, Data=tostring(i) })
+		end
 	end
+	if Controls['HostName'  ].String==nil or Controls['HostName'  ].String:len()<1 then Query({Command = Request["HostName"].Command, Data = ""}) end
+	if Controls['MACAddress'].String==nil or Controls['MACAddress'].String:len()<1 then GetDeviceInfo() end
+	SendNextCommand()
+end
 
 --[[  Response Data parser
 	
@@ -561,12 +592,19 @@ function Connected()
 	Recursively call if there is more data after the suffix. Stuff incomplete messages in the buffer
 ]]
 function ParseResponse(msg)
-	if DebugFunction then print("ParseResponse() Called") end
 	local delimPos_ = msg:find("\x0d\x0a")
+	if DebugFunction then print("ParseResponse("..string.len(msg)..","..delimPos_..") Called") end
 	local valid_ = msg:len()>0 and delimPos_~=nil
 	--Message is too short, buffer the chunk and wait for more
 	if not valid_ then 
-		print("invalid: "..msg)
+		delimPos = delimPos or 0
+		if DebugRx then 
+			if msg:len() < 50 then 
+				print("invalid["..#msg..","..delimPos.."]: "..msg)
+			else
+				print("invalid["..#msg..","..delimPos.."]: "..msg:sub(1,50))
+			end 
+		end  
 		DataBuffer = DataBuffer .. msg
 		--Message doesn't start at begining.  Find the correct start then parse from there
 	elseif msg:byte(1) ~= string.byte('~') then
@@ -574,7 +612,27 @@ function ParseResponse(msg)
 		if i ~= nil then
 			ParseResponse( msg:sub(i,-1) )
 		else
-			DataBuffer = DataBuffer .. msg
+			print("Starting to parse HELP response")
+			local a=1
+			--for g in msg:gmatch('([^\x0d]+)\x0d\x0a') do -- looking for multiple lines
+			for g in msg:gmatch('([%w-]+)\x0d\x0a') do -- looking for multiple lines
+				local g = string.gsub(g, '?', '')
+				print("["..a.."] len: "..g:len()..", "..g)
+				a = a+1
+				local found_ = false
+				for r,v in pairs(Request) do
+					if v.Command==g then
+						print("setting valid flag for Request["..g.."]")
+						v["Valid"] = true
+						found_ = true
+					end 
+				end
+				if not found_ then
+					print("Request["..g.."] not supported")
+				end
+			end
+			DataBuffer = ""
+			print("Finished parsing HELP response")
 		end
 	else
 		--Pack the data for the handler
@@ -587,7 +645,7 @@ function ParseResponse(msg)
 			m1_,m3_ = msg:match('~([^@]+)@ERR([^\x0d]+)\x0D\x0A') 
 			m2_ = Request["Error"].Command
 		end
-
+		
 		local ResponseObj = { ['DeviceID']=m1_, ['Command']=m2_, ['Data']=m3_ }
 		if DebugFunction then print('DeviceID: '..m1_..', Command: "'..m2_..'", data: "'..m3_..'"') end
 		--if DebugFunction then print('cResponseObj[DeviceID]:'..ResponseObj['DeviceID']) end
@@ -618,7 +676,7 @@ end
 
 -- Handler for good data from interface
 function HandleResponse(msg)
-	if DebugFunction then print('HandleResponse('..msg.Command..') Called, data: "'..msg.Data..'"') end
+	if DebugFunction then print('HandleResponse('..msg.Command..') Called, data['..string.len(msg.Data)..']: "'..msg.Data..'"') end
 	
 	local vals_ = {}
 	for g in string.gmatch(msg["Data"], "[^,]+") do
@@ -627,8 +685,11 @@ function HandleResponse(msg)
 
 	local io_ = { ['0'] = 'Input', ['1'] = 'Output'}
 
+	--Help response (getting valid commands)
+	if msg.Command=='Device' then
+
 	--Beacon info
-	if msg.Command==Request["DeviceInfo"].Command then
+	elseif msg.Command==Request["DeviceInfo"].Command then
 		if DebugFunction then 
 			if vals_[1]~=nil then print("port_id: "..vals_[1]) end
 			if vals_[2]~=nil then print("IPAddress: "..vals_[2]) end
@@ -776,15 +837,6 @@ function HandleResponse(msg)
 	elseif msg.Command==Request["AutoSwitchTimeout"].Command then
 		if DebugFunction then print("AutoSwitchTimeout: "..msg["Data"]) end
 		
-	elseif msg.Command==Request["Mute"].Command then
-		if DebugFunction then print("Mute: "..msg["Data"]) end
-		if DebugFunction and #vals_>2 then 
-			print("output: "..vals_[1].." mute: "..vals_[2]) 
-		end
-		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
-			Controls["output_"..vals_[1].."-mute"].Boolean = (vals_[2]=="1") 
-		end
-		
 	elseif msg.Command==Request["AudioSignalPresent"].Command then
 		if DebugFunction then print("AudioSignalPresent: "..msg["Data"]) end
 		if DebugFunction and #vals_>1 then 
@@ -830,13 +882,22 @@ function HandleResponse(msg)
 	elseif msg.Command==Request["VGAPhase"].Command then
 		if DebugFunction then print("VGAPhase: "..msg["Data"]) end
 
+	elseif msg.Command==Request["Mute"].Command then
+		if DebugFunction then print("Mute: "..msg["Data"]) end 
+		if DebugFunction and #vals_>1 then 
+			print("output: "..vals_[1].." mute: "..vals_[2]) 
+		end
+		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
+			Controls["output_"..vals_[1].."-mute"].Boolean = (vals_[2]=="1") 
+		end
+
 	elseif msg.Command==Request["VideoMute"].Command then
 		if DebugFunction then print("VideoMute: "..msg["Data"]) end
-		if DebugFunction and #vals_>2 then 
+		if DebugFunction and #vals_>1 then 
 			print("output: "..vals_[1].." video mute: "..vals_[2]) 
 		end
 		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
-			Controls["output_"..vals_[1].."-disable"].Boolean = (vals_[2]~="1") --0:disabled, 1:enabled, 2:blank(not all models)
+			Controls["output_"..vals_[1].."-disable"].Boolean = (vals_[2]=="1") --0:disabled, 1:enabled, 2:blank(not all models)
 		end
 
 	elseif msg.Command==Request["Route"].Command then 
@@ -897,8 +958,7 @@ end
 local function SetOutputDisable(index, value)
 	if DebugFunction then print("Set output " .. index .. " video mute to " .. tostring(value)) end
 	local cmd_ = Request["VideoMute"]
-	cmd_.Data = index..','.. (value and '0' or '1') -- 0:disabled, 1:enabled, 2:blank(not all models)
-
+	cmd_.Data = index..','.. (value and '1' or '0') -- 0:disabled, 1:enabled, 2:blank(not all models)
 	Send(cmd_)
 	--if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
 end
@@ -906,7 +966,101 @@ end
 -------------------------------------------------------------------------------
 -- Initialize
 -------------------------------------------------------------------------------	
+local TestHelpResponse = [[~01@Device available protocol 3000 commands:\x0d\x0a
+	AUD?\x0d\x0a
+	AUD\x0d\x0a
+	BALANCE?\x0d\x0a
+	BALANCE\x0d\x0a
+	BAUD?\x0d\x0a
+	BAUD\x0d\x0a
+	UART?\x0d\x0a
+	UART\x0d\x0a
+	BUILD-DATE?\x0d\x0a
+	CPEDID\x0d\x0a
+	DISPLAY?\x0d\x0a
+	ETH-PORT?\x0d\x0a
+	ETH-PORT\x0d\x0a
+	FACTORY\x0d\x0a
+	GEDID\x0d\x0a
+	HELP\x0d\x0a
+	INFO-PRST?\x0d\x0a
+	INFO-IO?\x0d\x0a
+	IDV\x0d\x0a
+	LOCK-FP?\x0d\x0a
+	LOCK-FP\x0d\x0a
+	LDEDID\x0d\x0a
+	MODEL?\x0d\x0a
+	MUTE?\x0d\x0a
+	MUTE\x0d\x0a
+	NET-MASK?\x0d\x0a
+	NET-MASK\x0d\x0a
+	NET-DHCP?\x0d\x0a
+	NET-DHCP\x0d\x0a
+	NET-GATE?\x0d\x0a
+	NET-GATE\x0d\x0a
+	NET-MAC?\x0d\x0a
+	NET-IP?\x0d\x0a
+	NET-IP\x0d\x0a
+	PROT-VER?\x0d\x0a
+	PRST-AUD?\x0d\x0a
+	PRST-LST?\x0d\x0a
+	PRST-VID?\x0d\x0a
+	PRST-STO\x0d\x0a
+	PRST-RCL\x0d\x0a
+	RESET\x0d\x0a
+	SIGNAL?\x0d\x0a
+	SN?\x0d\x0a
+	SIG-TYPE?\x0d\x0a
+	VERSION?\x0d\x0a
+	VOLUME?\x0d\x0a
+	VOLUME\x0d\x0a
+	AUD-LVL?\x0d\x0a
+	AUD-LVL\x0d\x0a
+	VID?\x0d\x0a
+	VID\x0d\x0a
+	HDCP-STAT?\x0d\x0a
+	HDCP-MOD?\x0d\x0a
+	HDCP-MOD\x0d\x0a
+	MTX-MODE?\x0d\x0a
+	MTX-MODE\x0d\x0a
+	AV-SW-TIMEOUT?\x0d\x0a
+	AV-SW-TIMEOUT\x0d\x0a
+	VMUTE?\x0d\x0a
+	VMUTE\x0d\x0a
+	PRIORITY?\x0d\x0a
+	PRIORITY\x0d\x0a
+	AV-SW-MODE?\x0d\x0a
+	AV-SW-MODE\x0d\x0a
+	DPSW-STATUS?\x0d\x0a
+	FPGA-VER?\x0d\x0a
+	LABEL?\x0d\x0a
+	LABEL\x0d\x0a
+	NAME?\x0d\x0a
+	NAME\x0d\x0a
+	NAME-RST\x0d\x0a
+	VID-PATTERN?\x0d\x0a
+	VID-PATTERN\x0d\x0a
+	LOGIN?\x0d\x0a
+	LOGIN\x0d\x0a
+	LOGOUT\x0d\x0a
+	PASS?\x0d\x0a
+	PASS\x0d\x0a
+	SECUR?\x0d\x0a
+	SECUR\x0d\x0a
+	AFV?\x0d\x0a
+	AFV\x0d\x0a
+	AV\x0d\x0a
+	SET-IN-CAP?\x0d\x0a
+	SET-IN-CAP\x0d\x0a
+	PROG-ACTION?\x0d\x0a
+	PROG-ACTION\x0d\x0a
+	REMOTE-INFO?\x0d\x0a
+	TUNNEL-CTRL\x0d\x0a
+	LOAD\x0d\x0a
+	DIR\x0d\x0a]]
+
 function TestFeedbacks()
+--[[
 	local cmd_ = Request["SignalPresent"]
 	cmd_.Data = '1,1'
 	ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
@@ -914,6 +1068,12 @@ function TestFeedbacks()
 	cmd_ = Request["AudioSignalPresent"]
 	cmd_.Data = '2,1'
 	ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
+]]
+	--~01@Device available protocol 3000 commands:\x0d\x0a
+	--cmd_= { Command = 'Device', Data = 'available protocol 3000 commands:' }
+	--TestHelpResponse = string.gsub(TestHelpResponse, [[\x0d\x0a]], "\x0d\x0a")
+	--print(TestHelpResponse:len())
+	ParseResponse(TestHelpResponse)
 end
 
 function Initialize()
@@ -1005,8 +1165,7 @@ function Initialize()
 	Disconnected()
 	Connect()
 	--TestFeedbacks()
-	
-	Heartbeat:Start(PollRate)
+	--Heartbeat:Start(PollRate)
 end
 
 -- Timer EventHandlers  --
@@ -1014,8 +1173,8 @@ Heartbeat.EventHandler = function()
 	if DebugFunction then print("Heartbeat Event Handler Called - CommandQueue size: "..#CommandQueue) end
 	if #CommandQueue < 1 then
 		for i = 1, Properties['Input Count'].Value do
-			Query({ Command=Request["SignalPresent"].Command, Data='1,'..tostring(i) })
-			Query({ Command=Request["AudioSignalPresent"].Command, Data='1,'..tostring(i) })
+			Query({ Command=Request["SignalPresent"].Command, Data=tostring(i) })
+			Query({ Command=Request["AudioSignalPresent"].Command, Data=tostring(i) })
 		end
 	end
 end

@@ -445,12 +445,12 @@ function GetControlLayout(props)
     -- the word "Label"
     local output_label_ = { Size={108, btn_.Size[2]}	, Position={0,0}, Type="Text", Text="Label", FontSize=11, HTextAlign="Center" } 						
     -- Text entry field
-    local output_name_ 	= { Size={output_label_.Size[1], base_obj_.Size[2]}, Position={0,0}, Type="Text", Style="Text", Color=colors.White, FontSize=9, HTextAlign="Center" }	
-    local input_name_   = { Size={base_obj_.Size[1], 54}, Position={0,0}, Type="Text", Style="Text", Color=colors.White, FontSize=9, HTextAlign="Center" }
+    local output_name_ 	= { Size={output_label_.Size[1], base_obj_.Size[2]}, Position={0,0}, Type="Text", Style="Text", Color=colors.White, FontSize=9, HTextAlign="Center", WordWrap = true }	
+    local input_name_   = { Size={base_obj_.Size[1], 54}, Position={0,0}, Type="Text", Style="Text", Color=colors.White, FontSize=9, HTextAlign="Center", WordWrap = true }
     -- number
     local output_num_ 	= { Size=base_obj_.Size			, Position={0,0}, Type="Text", FontSize=11, HTextAlign="Center" }	-- number text to be added later				
     local input_num_ 	= { Size=base_obj_.Size			, Position={0,0}, Type="Text", FontSize=11, HTextAlign="Center" }	-- number text to be added later				
-    local gain_label_ 	= { Size=base_obj_.Size			, Position={0,0}, Type="Text", Text="Gain", FontSize=11, HTextAlign="Right" } -- the word 'gain'
+    local gain_label_ 	= { Size=base_obj_.Size			, Position={0,0}, Type="Text", Text="Gain", FontSize=11, HTextAlign="Right", WordWrap = true } -- the word 'gain'
     local fader_ 		= { Size={base_obj_.Size[1], 112},Position={0,0}, Style="Fader", ShowTextbox=true }
     local ramp_ 		= { Size={ 18, 12}				, Position={0,0}, Style="Button", Color=colors.Button, FontColor=colors.White, FontSize=9, CornerRadius=0, Margin=0 } --inc, dec
     local led_ 			= { Size={ 16, 16}				, Position={0,0}, Style="Led", Margin=3, StrokeWidth=1, UnlinkOffColor=false } --StrokeColor=colors.Gray }
@@ -483,7 +483,6 @@ function GetControlLayout(props)
   
     local output_mute_label_ = copy(output_label_)
     output_mute_label_.Text = "Aud/Vid Mute"
-    output_mute_label_.WordWrap = true
     output_mute_label_.Position = { grp_output_gain.Position[1], grp_output_gain.Position[2] + 10 }
     output_mute_label_.Size = { base_obj_.Size[1] + 8, base_obj_.Size[2] } 
     table.insert(graphics, output_mute_label_)

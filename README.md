@@ -30,18 +30,18 @@ The files in "./DEV/" are for dev only and may not be the most current code, the
 ### Features tested and functional
 
 * Video matrix switching
+* Output audio mute (Protocol doesn't support input audio mute)
+* Output video disable (audio blank not supported)
 * Displaying device information (MAC, SN, FW, Hostname)
   
 ### Features not tested
 
-* Input and output gain
-* Output audio mute (Protocol doesn't support input audio mute)
-* Output video disable (audio blank not supported)
+* Input and output gain (not supported on VS-88 dev system)
 * Serial control
 
 ### Features not implemented
 
-* Authentication
+* Authentication (protocol does not require authentication)
 * HDCP enable and status
 * Audio embed
 

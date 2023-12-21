@@ -9,7 +9,7 @@ if Controls then
 	-- Control aliases
 	Status = Controls.Status
 	
-	local SimulateFeedback = true
+	local SimulateFeedback = System.IsEmulating
 	-- Variables and flags
 	DebugTx=false
 	DebugRx=false
@@ -530,11 +530,24 @@ if Controls then
 			if(Controls["DeviceFirmware"].String == "") then Query( Request["DeviceFirmware"] )  end
 		end
 		Query( Request["AudioFollowVideo"] )
-		if Properties['Model'].Value=='Other' then
-			QueryLevelRanges()  
-		end
+		QueryLabels()
+		if Properties['Model'].Value=='Other' then QueryLevelRanges() end
 	end
 	
+	function QueryLabels()
+		if DebugFunction then print("QueryLabels())") end
+		for i=1, Properties['Input Count'].Value do
+			local cmd_ = {Command = Request["Label"].Command, Data = '0,'..i }
+			if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data..',Input '..i)) end
+			Query(cmd_)
+		end
+		for o=1, Properties['Output Count'].Value do
+			local cmd_ = {Command = Request["Label"].Command, Data = '1,'..o }
+			if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data..',Output '..o)) end
+			Query(cmd_)
+		end
+	end
+
 	function QueryLevelRanges()
 		if DebugFunction then print("QueryLevelRanges())") end
 		for i=1, Properties['Input Count'].Value do
@@ -551,6 +564,7 @@ if Controls then
 
 	local function QueryRoutes()
 		Query({Command = Request["Route"].Command, Data = Layers.Video ..',*'})
+		Query({Command = Request["Route"].Command, Data = Layers.Audio ..',*'})
 	end
 
 	--[[  Response Data parser
@@ -1002,7 +1016,7 @@ if Controls then
 		cmd_ = Request["AudioFollowVideo"]
 		cmd_.Data = '1'
 		ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
-
+--[[
 		cmd_ = Request["Label"]
 		for i = 1, Properties['Input Count'].Value do
 			cmd_.Data = '0,'..tostring(i)..',INPUT '..i
@@ -1012,7 +1026,7 @@ if Controls then
 			cmd_.Data = '1,'..tostring(o)..',OUTPUT '..o
 			ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
 		end 
-
+--]]
 	end
 
 	function Initialize()
@@ -1135,7 +1149,7 @@ if Controls then
 		Disconnected()
 		Connect()
 		GetDeviceInfo()
-		--TestFeedbacks()
+		if System.IsEmulating then TestFeedbacks() end
 		
 		Heartbeat:Start(PollRate)
 	end

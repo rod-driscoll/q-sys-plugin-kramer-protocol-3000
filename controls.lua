@@ -115,19 +115,35 @@ table.insert(ctrls, {
   Count        = 1
 })
 
-  -- Switching Controls --
+-- Switching Controls --
+
+table.insert(ctrls, {
+  Name         = "AFV",
+  ControlType  = "Button",
+  ButtonType   = "Toggle",
+  PinStyle     = "Both",
+  UserPin      = true,
+  Count        = 1
+})
+
 for i = 0, props['Output Count'].Value do
-      for s = 1, props['Input Count'].Value do
-          table.insert(ctrls, {
-                  Name = "vid-input_" .. s .. "-output_" .. i,
-                  ControlType = "Button",
-                  ButtonType = "Toggle",
-                  PinStyle = "Both",
-                  UserPin = true
-              }
-          )
-      end
+  for s = 1, props['Input Count'].Value do
+    table.insert(ctrls, {
+      Name = "vid-input_" .. s .. "-output_" .. i,
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      PinStyle = "Both",
+      UserPin = true
+    })
+    table.insert(ctrls, {
+      Name = "aud-input_" .. s .. "-output_" .. i,
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      PinStyle = "Both",
+      UserPin = true
+    })
   end
+end
 
 -- input Controls --
 --input levels are not specifically defined in protocol, however input level range is defined
@@ -242,4 +258,36 @@ for i = 0, props['Output Count'].Value do
     UserPin      = true,
     PinStyle     = "Both"
   })
-  end
+  table.insert(ctrls, {
+    Name         = "output_" .. i .. "-source",
+    ControlType  = "Text",
+    Style        = "ComboBox",
+    Count        = 1,
+    UserPin      = true,
+    PinStyle     = "Both"
+  })
+end
+
+table.insert(ctrls, {
+  Name         = "SendString",
+  ControlType  = "Text",
+  Count        = 1,
+  DefaultValue = "#VID 1>2",
+  UserPin      = true,
+  PinStyle     = "Input"
+})
+table.insert(ctrls, {
+  Name         = "ReceivedString",
+  ControlType  = "Text",
+  Count        = 1,
+  UserPin      = true,
+  PinStyle     = "Output"
+})
+table.insert(ctrls, {
+  Name         = "LockFrontPanel",
+  ControlType  = "Button",
+  PinStyle     = "Both",
+  ButtonType   = "Toggle",
+  UserPin      = true,
+  Count        = 1
+})

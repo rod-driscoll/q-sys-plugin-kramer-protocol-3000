@@ -1,4 +1,10 @@
 table.insert(props,{
+  Name = 'Model',
+  Type    = "enum", 
+  Choices = {"VS series", "Other"},
+  Value   = "Other"
+})
+table.insert(props,{
   Name = 'Input Count',
   Type = 'integer',
   Min = 2,
@@ -23,7 +29,7 @@ table.insert(props,{
   Type  = "integer",
   Min   = 1,
   Max   = 60, 
-  Value = 3
+  Value = 10
 })
 table.insert(props,{
   Name  = "Get Device Info",

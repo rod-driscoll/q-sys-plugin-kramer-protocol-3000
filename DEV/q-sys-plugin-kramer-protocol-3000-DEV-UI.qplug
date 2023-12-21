@@ -23,7 +23,7 @@ function GetPrettyName()
 end
 
 -- Optional function used if plugin has multiple pages
-local PageNames = {"Setup","Device"} --List the pages within the plugin
+local PageNames = {"Setup","Matrix","Utilities"} --List the pages within the plugin
 function GetPages(props)
   local pages = {}
   for ix,name in ipairs(PageNames) do
@@ -220,19 +220,35 @@ function GetControls(props)
     Count        = 1
   })
   
-    -- Switching Controls --
+  -- Switching Controls --
+  
+  table.insert(ctrls, {
+    Name         = "AFV",
+    ControlType  = "Button",
+    PinStyle     = "Both",
+    ButtonType   = "Toggle",
+    UserPin      = true,
+    Count        = 1
+  })
+
   for i = 0, props['Output Count'].Value do
-        for s = 1, props['Input Count'].Value do
-            table.insert(ctrls, {
-                    Name = "vid-input_" .. s .. "-output_" .. i,
-                    ControlType = "Button",
-                    ButtonType = "Toggle",
-                    PinStyle = "Both",
-                    UserPin = true
-                }
-            )
-        end
+    for s = 1, props['Input Count'].Value do
+      table.insert(ctrls, {
+        Name = "vid-input_" .. s .. "-output_" .. i,
+        ControlType = "Button",
+        ButtonType = "Toggle",
+        PinStyle = "Both",
+        UserPin = true
+      })
+      table.insert(ctrls, {
+        Name = "aud-input_" .. s .. "-output_" .. i,
+        ControlType = "Button",
+        ButtonType = "Toggle",
+        PinStyle = "Both",
+        UserPin = true
+      })
     end
+  end
   
   -- input Controls --
   --input levels are not specifically defined in protocol, however input level range is defined
@@ -355,7 +371,31 @@ function GetControls(props)
       UserPin      = true,
       PinStyle     = "Both"
     })
-    end
+  end
+
+  table.insert(ctrls, {
+    Name         = "SendString",
+    ControlType  = "Text",
+    Count        = 1,
+    DefaultValue = "#VID 1>2",
+    UserPin      = true,
+    PinStyle     = "Input"
+  })
+  table.insert(ctrls, {
+    Name         = "ReceivedString",
+    ControlType  = "Text",
+    Count        = 1,
+    UserPin      = true,
+    PinStyle     = "Output"
+  })
+  table.insert(ctrls, {
+    Name         = "LockFrontPanel",
+    ControlType  = "Button",
+    PinStyle     = "Both",
+    ButtonType   = "Toggle",
+    UserPin      = true,
+    Count        = 1
+  })
   return ctrls
 end
 
@@ -415,8 +455,8 @@ function GetControlLayout(props)
       table.insert(graphics,{Type="Text",Text="Port",Position={15,60},Size={100,16},FontSize=14,HTextAlign="Right"})
       layout["TcpPort"] = {PrettyName="Settings~Port",Style="Text",Position={120,60},Size={99,16},FontSize=12}
       table.insert(graphics,{Type="Text",Text="(5000 default)",Position={221,60},Size={100,18},FontSize=10,HTextAlign="Left"})
-      table.insert(graphics,{Type="Text",Text="Reboot",Position={315,35},Size={70,14},FontSize=12,HTextAlign="Center",Color=colors.Text})
-      layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={325,48}, Size={50,20} }
+      --layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={325,48}, Size={50,20} }
+      --table.insert(graphics,{Type="Text",Text="Reboot",Position={315,35},Size={70,14},FontSize=12,HTextAlign="Center",Color=colors.Text})
     else
       table.insert(graphics,{Type="Text",Text="Reset Serial",Position={5,32},Size={110,16},FontSize=14,HTextAlign="Right"})
       layout["Reset"] = {PrettyName="Settings~Reset Serial", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={120,30}, Size={50,20} }
@@ -442,8 +482,18 @@ function GetControlLayout(props)
   
     table.insert(graphics,{Type="Text",Text=GetPrettyName(),Position={15,200},Size={380,14},FontSize=10,HTextAlign="Right", Color=colors.Gray})
   
-  elseif(CurrentPage == 'Device') then 
+  elseif(CurrentPage == 'Utilities') then 
   
+    table.insert(graphics,{Type="Text",Text="Audio follow video",             Position={  8,  4},Size={110, 16},FontSize=12,HTextAlign="Right"})
+    layout["AFV"] = {PrettyName="Audio follow video",Style="Button",          Position={122,  4},Size={ 36, 16},FontSize=12,Color=colors.Red,Margin=0 }
+    table.insert(graphics,{Type="Text",Text="Send string",                    Position={  8, 24},Size={110, 16},FontSize=12,HTextAlign="Right"})
+    layout["SendString"] = {PrettyName="Send string",Style="Text",            Position={122, 24},Size={110, 16},FontSize=12,Color=colors.White}
+    table.insert(graphics,{Type="Text",Text="Received string",                Position={  8, 42},Size={110, 16},FontSize=12,HTextAlign="Right"})
+    layout["ReceivedString"] = {PrettyName="Received string",Style="Text",    Position={122, 42},Size={110, 16},FontSize=12,Color=colors.Gray}
+    table.insert(graphics,{Type="Text",Text="Lock front panel",               Position={  8, 60},Size={110, 16},FontSize=12,HTextAlign="Right"})
+    layout["LockFrontPanel"] = {PrettyName="Lock front panel",Style="Button", Position={122, 60},Size={ 36, 16},FontSize=12,Color=colors.Red,Margin=0 }
+
+  elseif(CurrentPage == 'Matrix') then 
     
     --local helper = require("Helpers")
     helper = {}
@@ -460,6 +510,7 @@ function GetControlLayout(props)
       return res
     end  
 
+    local large_matrix_size_ = { 12, 12 }
     -- create objects for each section so they can be modified easily
     -- add crosspoints (routes, labels, groupbox)
     local UI_crosspoints = {
@@ -469,34 +520,54 @@ function GetControlLayout(props)
       Padding     = { 4, 4 },
       GroupPadding= { 4, 4 },
       Button      = { Style = "Button", Size = { 36, 36}, Margin = 0 },
+      AudioButton = { Style = "Button", Size = { 16, 12}, Margin = 0, FontSize=9, Color=colors.Red },
       NameText    = { Style = "Text", Type="Text", Color=colors.White, FontSize=10, HTextAlign="Center", WordWrap = true },
       NumButtons  = { props['Input Count'].Value, props['Output Count'].Value },
       Label       = { Style = "Label", Size = { 74, 14}, Type="Text", FontSize=10, HTextAlign="Center", WordWrap = true },
-      Led         = { Style = "Led"  , Size = { 16, 16}, Margin=3, StrokeWidth=1, UnlinkOffColor=false },
+      Led         = { Style = "Led"  , Size = { 16, 16}, Margin=0, StrokeWidth=1, UnlinkOffColor=false },
       Outputs     = {}, -- to be filled in Init()
+      AudioOutputs= {}, -- to be filled in Init()
       --groupbox
       GroupBox    = { Type="GroupBox", Text="", StrokeWidth=1, CornerRadius=4, HTextAlign="Left" },
       
       Init = function (self)
-        if self.NumButtons[1] > 12 or self.NumButtons[2] > 12 then 
+        if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
           self.Padding     = { 1, 1 }
           self.Button.Size = { 18, 18 }
+          self.AudioButton.Size = { 8, 6 }
+          self.Led.Size = { 8, 8 }
+          --self.Label.Size = { 37, 7 }
         end
         self.GroupBox.Size = {
           self.Padding[1] + self.NumButtons[1]*(self.Padding[1] + self.Button.Size[1]),
           self.Padding[2] + self.NumButtons[2]*(self.Padding[2] + self.Button.Size[2]) + self.Label.Size[2]+ self.Padding[2] }
-        self.GroupBox.Position  = self.Position
+        self.GroupBox.Position  = self.Position        
+        --local newPos_ = {}
+        local z=0
         for i=1, self.NumButtons[1] do          
           for o=1, self.NumButtons[2] do
+            z=z+1
             local btn_ = helper.Copy(self.Button)
             btn_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o
             btn_['Legend'] = tostring(i)
             btn_['Position']={
               self.GroupBox.Position[1] + self.Padding[1] + (i-1)*(self.Button.Size[1] + self.Padding[1]), -- moving accross
               self.GroupBox.Position[2] + self.Padding[2] + (o-1)*(self.Button.Size[2] + self.Padding[2]) + self.Label.Size[2]+ self.Padding[2] } -- moving down
+            btn_['ZOrder'] = z + 0x1000
             btn_.Layout_ID = "vid-input_" ..i.. "-output_" .. o
             if self.Outputs[o]==nil then self.Outputs[o]={} end
             self.Outputs[o][i]=btn_
+
+            local aud_ = helper.Copy(self.AudioButton)
+            aud_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o .. " audio"
+            --btn_['Legend'] = 'A'
+            aud_['Position']={
+              btn_.Position[1] + btn_.Size[1] - aud_.Size[1],
+              btn_.Position[2] + btn_.Size[2] - aud_.Size[2] }
+            btn_['ZOrder'] = z
+            aud_.Layout_ID = "aud-input_" ..i.. "-output_" .. o
+            if self.AudioOutputs[o]==nil then self.AudioOutputs[o]={} end
+            self.AudioOutputs[o][i]=aud_
           end
         end
       end,
@@ -504,6 +575,9 @@ function GetControlLayout(props)
       Draw = function(self, layout)
         table.insert(graphics, self.GroupBox)
         for _,o in pairs(self.Outputs) do 
+          for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+        end
+        for _,o in pairs(self.AudioOutputs) do 
           for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
         end
       end,
@@ -515,6 +589,12 @@ function GetControlLayout(props)
           for _,i in pairs(o) do 
             i.Position[1] = i.Position[1] + distance[1]
             i.Position[2] = i.Position[2] + distance[2]
+          end
+        end
+        for _,ao in pairs(self.AudioOutputs) do 
+          for _,ai in pairs(ao) do 
+            ai.Position[1] = ai.Position[1] + distance[1]
+            ai.Position[2] = ai.Position[2] + distance[2]
           end
         end
       end
@@ -619,7 +699,12 @@ function GetControlLayout(props)
           UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.GroupBox.Size[2] + self.Padding[2] } -- vert, increase as objects added   
         self.GroupBox.Position = self.Position
         self.GroupBox.Text="Inputs"
-        
+
+        if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+          self.Padding     = {  1, 1 }
+          self.Button.Size = { 18, 18 }
+          self.Led.Size    = { 8, 8 }
+        end
         local newPos_ = {}
 
         for i=1, self.NumButtons do
@@ -653,12 +738,15 @@ function GetControlLayout(props)
           vsignal_['Position'] = { 
             asignal_.Position[1] + asignal_.Size[1] + self.Padding[1],
             asignal_.Position[2] }
+          if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+            vsignal_.Position[1] = asignal_.Position[1] + asignal_.Size[1]
+          end
           vsignal_.Layout_ID = "vid-input_" .. i .. "-signal"
           table.insert(self.Buttons, vsignal_)
           if i==1 then 
             -- label to the left of the groupbox
             local lbl_signal_ = helper.Copy(self.Label)
-            lbl_signal_["Text"] = "Signal"            
+            lbl_signal_["Text"] = "A/V Signal"            
             lbl_signal_['Position']={
               self.GroupBox.Position[1] - self.Padding[1] - lbl_signal_.Size[1], 
               newPos_[2] }
@@ -675,7 +763,11 @@ function GetControlLayout(props)
             level_['Position'] = helper.Copy(newPos_)
             level_['Style'] = "Fader"
             level_.ShowTextbox = true
-            level_.Size[2] = 112
+            if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+              level_.Size[2] = 75
+            else
+              level_.Size[2] = 112
+            end
             level_.Layout_ID = "input_" .. i .. "-level"
             table.insert(self.Buttons, level_)
             if i==1 then
@@ -695,6 +787,9 @@ function GetControlLayout(props)
             local dec_ = helper.Copy(self.Nudge)
             dec_['PrettyName'] = "Inputs~".. i .."~down"
             dec_['Position'] = helper.Copy(newPos_)
+            if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+              dec_.Position[2] = dec_.Position[2] + dec_.Size[2] 
+            end
             dec_.Text = "-"
             dec_.String = "-=1"
             dec_.Layout_ID = "input_" .. i .. "-level_down"
@@ -705,15 +800,23 @@ function GetControlLayout(props)
             --Gain inc
             local inc_ = helper.Copy(dec_)
             inc_['PrettyName'] = "Inputs~".. i .."~up"
-            inc_.Position[1] = dec_.Position[1] + dec_.Size[1]
+            if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+              inc_.Position[2] = newPos_[2] 
+            else
+              inc_.Position[1] = dec_.Position[1] + dec_.Size[1]
+            end
             inc_.Text = "+"
             inc_.String = "+=1"
             inc_.Layout_ID = "input_" .. i .. "-level_up"
             table.insert(self.Buttons, inc_)
             if i==1 then self.GroupBox.Size[2] = self.GroupBox.Size[2] + inc_.Size[2] + self.Padding[2] end
-            newPos_[2] = inc_.Position[2] + inc_.Size[2] + self.Padding[2]
+            if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+              newPos_[2] = dec_.Position[2] + dec_.Size[2] + self.Padding[2]
+            else
+              newPos_[2] = inc_.Position[2] + inc_.Size[2] + self.Padding[2]
+            end
           end
-          
+
           -- Names
           local name_ = helper.Copy(self.NameText)
           name_['PrettyName'] = "Inputs~".. i .."~name"
@@ -766,7 +869,7 @@ function GetControlLayout(props)
       Position    = helper.Copy(UI_crosspoints.Position),
       --buttons
       Button      = helper.Copy(UI_crosspoints.Button),
-      Label      = helper.Copy(UI_crosspoints.Label),
+      Label       = helper.Copy(UI_crosspoints.Label),
       Padding     = helper.Copy(UI_crosspoints.Padding),
       Selector    = { Style = "ComboBox", Type="Text", Size={76, UI_crosspoints.Button.Size[2]}, Color=colors.White, FontSize=10, HTextAlign="Center", WordWrap = true },
       NumButtons  = props['Output Count'].Value,
@@ -785,7 +888,12 @@ function GetControlLayout(props)
           UI_inputObjects.GroupBox.Position[2] }
         self.GroupBox.Text="Output"
         --self.Label.HTextAlign="Right"
-
+        if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+          self.Padding = { 1, 1 }
+          self.Button.Size = { 18, 18 }
+          self.Selector.Size[2] = 18
+          self.Label.FontSize = 6
+        end
         local newPos_ = {}
 
         for o=1, self.NumButtons do
@@ -796,7 +904,11 @@ function GetControlLayout(props)
           -- A/V Mutes
           local amute_ = helper.Copy(self.Button)
           amute_['Color'] = colors.Red
-          amute_.Size[2] = 16
+          if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+            amute_.Size[2] = 8
+          else
+            amute_.Size[2] = 16
+          end
           amute_['PrettyName'] = "Outputs~".. o .."~mute"
           amute_['Position'] = helper.Copy(newPos_) 
           amute_.Layout_ID = "output_" .. o .. "-mute"
@@ -824,8 +936,7 @@ function GetControlLayout(props)
             self.GroupBox.Size[1] = self.GroupBox.Size[1] + amute_.Size[1] + self.Padding[1]
           end
           newPos_[1] = newPos_[1] + amute_.Size[1] + self.Padding[1]
-          
-          
+                 
           if props['Model'].Value=='Other' then
             -- Gain knob
             local gain_ = helper.Copy(self.Button)

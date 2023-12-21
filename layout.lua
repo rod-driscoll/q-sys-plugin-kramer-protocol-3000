@@ -50,13 +50,13 @@ if(CurrentPage == 'Setup') then
     table.insert(graphics,{Type="Text",Text="Port",Position={15,60},Size={100,16},FontSize=14,HTextAlign="Right"})
     layout["TcpPort"] = {PrettyName="Settings~Port",Style="Text",Position={120,60},Size={99,16},FontSize=12}
     table.insert(graphics,{Type="Text",Text="(5000 default)",Position={221,60},Size={100,18},FontSize=10,HTextAlign="Left"})
-    table.insert(graphics,{Type="Text",Text="Reboot",Position={315,35},Size={70,14},FontSize=12,HTextAlign="Center",Color=colors.Text})
-    layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={325,48}, Size={50,20} }
+    --layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={325,48}, Size={50,20} }
+    --table.insert(graphics,{Type="Text",Text="Reboot",Position={315,35},Size={70,14},FontSize=12,HTextAlign="Center",Color=colors.Text})
   else
     table.insert(graphics,{Type="Text",Text="Reset Serial",Position={5,32},Size={110,16},FontSize=14,HTextAlign="Right"})
     layout["Reset"] = {PrettyName="Settings~Reset Serial", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={120,30}, Size={50,20} }
-    table.insert(graphics,{Type="Text",Text="Reboot",Position={15,57},Size={100,16},FontSize=14,HTextAlign="Right"})
-    layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={120,55}, Size={50,20} }
+    --table.insert(graphics,{Type="Text",Text="Reboot",Position={15,57},Size={100,16},FontSize=14,HTextAlign="Right"})
+    --layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={120,55}, Size={50,20} }
   end
   table.insert(graphics,{Type="Text",Text="Device ID",Position={15,85},Size={100,16},FontSize=14,HTextAlign="Right"})
   layout["DeviceID"] = {PrettyName="Settings~Device ID Number", Style="Text", FontColor=colors.Text, Position={120,85}, Size={99,16}, FontSize=12}
@@ -77,226 +77,537 @@ if(CurrentPage == 'Setup') then
 
   table.insert(graphics,{Type="Text",Text=GetPrettyName(),Position={15,200},Size={380,14},FontSize=10,HTextAlign="Right", Color=colors.Gray})
 
-elseif(CurrentPage == 'Device') then 
+elseif(CurrentPage == 'Utilities') then 
+  
+  table.insert(graphics,{Type="Text",Text="Audio follow video",         Position={  8,  4},Size={110, 16},FontSize=12,HTextAlign="Right"})
+  layout["AFV"] = {PrettyName="Audio follow video",Style="Button",      Position={122,  4},Size={ 36, 16},FontSize=12,Color=colors.Red,Margin=0 }
+  table.insert(graphics,{Type="Text",Text="Send string",                Position={  8, 24},Size={110, 16},FontSize=12,HTextAlign="Right"})
+  layout["SendString"] = {PrettyName="Send string",Style="Text",        Position={122, 24},Size={110, 16},FontSize=12,Color=colors.White}
+  table.insert(graphics,{Type="Text",Text="Received string",            Position={  8, 42},Size={110, 16},FontSize=12,HTextAlign="Right"})
+  layout["ReceivedString"] = {PrettyName="Received string",Style="Text",Position={122, 42},Size={110, 16},FontSize=12,Color=colors.Gray}
+  table.insert(graphics,{Type="Text",Text="Lock front panel",               Position={  8, 60},Size={110, 16},FontSize=12,HTextAlign="Right"})
+  layout["LockFrontPanel"] = {PrettyName="Lock front panel",Style="Button", Position={122, 60},Size={ 36, 16},FontSize=12,Color=colors.Red,Margin=0 }
 
-  function copy(obj, seen)
-    if type(obj) ~= 'table' then return obj end
-    if seen and seen[obj] then return seen[obj] end
+elseif(CurrentPage == 'Matrix') then 
+
+  --local helper = require("Helpers")
+  helper = {}
+  helper.Copy = function(tbl, seen)
+    if type(tbl) ~= 'table' then return tbl end
+    if seen and seen[tbl] then return seen[tbl] end
     local s = seen or {}
-    local res = setmetatable({}, getmetatable(obj))
-    s[obj] = res
-    for k, v in pairs(obj) do res[copy(k, s)] = copy(v, s) end
-    return res
-  end
-
-  -- start with sizes of each object
-  local base_obj_ 	= { Size={ 36, 36}				, Position={0,0} } -- a gain size, and the position of the xpt fader
-  local btn_ 			= { Size={base_obj_.Size[1], 16}, Position={0,0}, Style="Button" }
-  -- the word "Label"
-  local output_label_ = { Size={108, btn_.Size[2]}	, Position={0,0}, Type="Text", Text="Label", FontSize=11, HTextAlign="Center", WordWrap = true } 						
-  -- Text entry field
-  local output_name_ 	= { Size={output_label_.Size[1], base_obj_.Size[2]}, Position={0,0}, Type="Text", Style="Text", Color=colors.White, FontSize=9, HTextAlign="Center", WordWrap = true }	
-  local input_name_   = { Size={base_obj_.Size[1], 54}, Position={0,0}, Type="Text", Style="Text", Color=colors.White, FontSize=9, HTextAlign="Center", WordWrap = true }
-  -- number
-  local output_num_ 	= { Size=base_obj_.Size			, Position={0,0}, Type="Text", FontSize=11, HTextAlign="Center" }	-- number text to be added later				
-  local input_num_ 	= { Size=base_obj_.Size			, Position={0,0}, Type="Text", FontSize=11, HTextAlign="Center" }	-- number text to be added later				
-  local gain_label_ 	= { Size=base_obj_.Size			, Position={0,0}, Type="Text", Text="Gain", FontSize=11, HTextAlign="Right", WordWrap = true } -- the word 'gain'
-  local fader_ 		= { Size={base_obj_.Size[1], 112},Position={0,0}, Style="Fader", ShowTextbox=true }
-  local ramp_ 		= { Size={ 18, 12}				, Position={0,0}, Style="Button", Color=colors.Button, FontColor=colors.White, FontSize=9, CornerRadius=0, Margin=0 } --inc, dec
-  local led_ 			= { Size={ 16, 16}				, Position={0,0}, Style="Led", Margin=3, StrokeWidth=1, UnlinkOffColor=false } --StrokeColor=colors.Gray }
-
-  -- Most Positions are dynamic, when initialised positions are for the first item with a 1x1 matrix 
-  local tbl_				= { Position={  8,  8}, Size=nil } -- offset of the entire table
-  
-  -- GroupBoxes, these sizes will be altered
-  local grp_output		= { Position={tbl_.Position[1]    , tbl_.Position[2]+44}, Size={354, 60}, Type="GroupBox", Text="Output", StrokeWidth=1, CornerRadius=4, HTextAlign="Left" }
-  local grp_input			= { Position={tbl_.Position[1]+220, tbl_.Position[2]   }, Size={ 44,328}, Type="GroupBox", Text="Input", StrokeWidth=1, CornerRadius=4, HTextAlign="Left" }
-  local grp_output_gain	= { Position={tbl_.Position[1]+272, tbl_.Position[2]   }, Size={ 82,104}, Type="GroupBox", Text="Output", StrokeWidth=1, CornerRadius=4, HTextAlign="Left" }
-
-  -- build an output row from left to right to use as reference positions
-  output_label_.Position[2] = grp_output.Position[2]+4 -- the word "label"
-  base_obj_.Position[2] = output_label_.Position[2] + output_label_.Size[2]
-  output_num_.Position = { grp_output.Position[1]+4, base_obj_.Position[2] }
-  output_label_.Position[1] = output_num_.Position[1] + output_num_.Size[1] + 8
-  table.insert(graphics, output_label_)
-
-  output_name_.Position = { output_label_.Position[1], base_obj_.Position[2] }
-  local output_xpt_label_ = copy(gain_label_)
-  output_xpt_label_.Text = "Route"
-  output_xpt_label_.Position = { output_label_.Position[1]+output_label_.Size[1]+8, base_obj_.Position[2] + (base_obj_.Size[2] - btn_.Size[2]) / 2 }
-
-  grp_input.Position[1] = output_xpt_label_.Position[1] + output_xpt_label_.Size[1] + 8
-  grp_input.Size[1] = props['Input Count'].Value * (base_obj_.Size[1] + 4) + 4				-- multiplier
-  base_obj_.Position[1] = grp_input.Position[1] + 4
-  grp_output_gain.Position[1] = grp_input.Position[1] + grp_input.Size[1] + 8
-  grp_output.Size[1] = grp_output_gain.Position[1] + grp_output_gain.Size[1] + 8 - grp_output.Position[1]
-
-  local output_mute_label_ = copy(output_label_)
-  output_mute_label_.Text = "Aud/Vid Mute"
-  output_mute_label_.Position = { grp_output_gain.Position[1], grp_output_gain.Position[2] + 10 }
-  output_mute_label_.Size = { base_obj_.Size[1] + 8, base_obj_.Size[2] } 
-  table.insert(graphics, output_mute_label_)
-
-  local output_mute_ = copy(btn_)
-  output_mute_.Position[1] = grp_output_gain.Position[1] + 4
-  output_mute_.Color=colors.Red
-  
-  local output_disable_ = copy(output_mute_)
-  output_disable_.Color=colors.Green
-  output_disable_.Position[1] = output_mute_.Position[1]
-
-  local output_gain_label_ = copy(output_mute_label_)
-  output_gain_label_.Text = "Gain"
-  output_gain_label_.Position[1] = output_mute_label_.Position[1] + output_mute_label_.Size[1]
-  table.insert(graphics, output_gain_label_)
-
-  local output_gain_ = copy(base_obj_)
-  output_gain_.Style = "Knob"
-  output_gain_.Position = { output_gain_label_.Position[1] + 4, base_obj_.Position[2] }
-
-  -- input coordinates
-  grp_output.Size[2] = output_label_.Size[2] + 4 + (props['Output Count'].Value * (base_obj_.Size[2] + 8))
-  grp_output_gain.Size[1] = grp_output.Position[1] + grp_output.Size[1] - grp_output_gain.Position[1]
-  grp_output_gain.Size[2] = grp_output.Position[2] + grp_output.Size[2] - grp_output_gain.Position[2]
-
-  -- input labels
-  local input_signal_label_ = copy(output_xpt_label_)
-  input_signal_label_.Text = "Signal"
-  input_signal_label_.Position[2] = grp_output.Position[2] + grp_output.Size[2] + 8
-  input_signal_label_.Size[2] = led_.Size[2]
-  table.insert(graphics, input_signal_label_)
-  
-  local input_gain_label_ = copy(output_xpt_label_)
-  input_gain_label_.Text = "Gain"
-  input_gain_label_.Position[2] = input_signal_label_.Position[2] + input_signal_label_.Size[2]
-  input_gain_label_.Size[2] = fader_.Size[2]
-  table.insert(graphics, input_gain_label_)
-  
-  local input_dec_ = copy(ramp_)
-  input_dec_.Text = "-"
-  input_dec_.String = "-=1"
-  input_dec_.Position[2] = input_gain_label_.Position[2] + input_gain_label_.Size[2]
-  local input_inc_ = copy(input_dec_)
-  input_inc_.Text = "+"
-  input_inc_.String = "+=1"
-  input_inc_.Position[1] = input_dec_.Position[1] + input_dec_.Size[1]
-
-  local input_label_ = copy(output_xpt_label_) -- the word 'Label'
-  input_label_.Text = "Label"
-  input_label_.Position[2] = input_inc_.Position[2] + input_inc_.Size[2] + 8
-  input_label_.Size[2] = input_name_.Size[2]
-  table.insert(graphics, input_label_)
-
-  grp_input.Size[2] = input_label_.Position[2] + input_label_.Size[2] + 4
-  
-  table.insert(graphics, grp_output)
-  table.insert(graphics, grp_input)
-  table.insert(graphics, grp_output_gain)
-
-  -- input items ( columns )
-  --input_num_.Position = { base_obj_.Position[1], output_mute_label_.Position[2] }
-  input_num_.Position = { base_obj_.Position[1], grp_input.Position[2] + 10 }
-
-  --local input_mute_ = copy(btn_)
-  local input_aud_signal_ = copy(led_)
-  input_aud_signal_.Position = { base_obj_.Position[1], input_signal_label_.Position[2] }
-  input_aud_signal_.Color=colors.Red
-  --input_aud_signal_.OffColor=colors.DarkRed
-
-  local input_vid_signal_ = copy(input_aud_signal_)
-  input_vid_signal_.Color=colors.Green
-  --input_vid_signal_.OffColor=colors.Green
-  --input_vid_signal_.UnlinkOffColor=true
-  --input_vid_signal_.Position[1] = input_vid_signal_.Position[1] + input_vid_signal_.Size[1]
-  local input_gain_ = copy(fader_)
-  input_gain_.Position = { base_obj_.Position[1], input_gain_label_.Position[2] }
-  input_name_.Position = { base_obj_.Position[1], input_label_.Position[2] }
-  
-  -- draw outputs
-  for o = 1, props['Output Count'].Value do -- For each output
-    local pos_ = base_obj_.Position[2] + (o-1)*(base_obj_.Size[2] + 4)
-
-    local num_ = copy(output_num_) -- number
-    num_["Text"] = tostring(o)
-    num_.Position[2] = pos_
-    table.insert(graphics, num_)
-    
-    local xpt_label_ = copy(output_xpt_label_) -- the label "Route"
-    xpt_label_.Position[2] = pos_
-    table.insert(graphics, xpt_label_)
-
-    local name_ = copy(output_name_)
-    name_['PrettyName'] = "Outputs~Output ".. o .."~Output ".. o .." name"
-    name_.Position[2] = pos_
-    layout["output_" .. o .. "-name"] = name_
-    
-    local mute_ = copy(output_mute_)
-    mute_['PrettyName'] = "Outputs~Output ".. o .."~Output ".. o .." mute"
-    --mute_.Position[2] = pos_ + (base_obj_.Size[2] - mute_.Size[2]) / 2
-    mute_.Position[2] = pos_
-    layout["output_" .. o .. "-mute"] = mute_
-
-    local disable_ = copy(output_disable_)
-    disable_['PrettyName'] = "Outputs~Output ".. o .."~Output ".. o .." disable"
-    disable_.Position[2] = pos_ + mute_.Size[2] + 2
-    layout["output_" .. o .. "-disable"] = disable_
-    
-    local gain_ = copy(output_gain_)
-    gain_['PrettyName'] = "Outputs~Output ".. o .."~Output ".. o .." level"
-    gain_.Position[2] = pos_
-    layout["output_" .. o .. "-level"] = gain_
-  end
-
-  -- draw inputs
-  for i = 1, props['Input Count'].Value do -- For each input
-    local pos_ = base_obj_.Position[1] + (i-1)*(base_obj_.Size[1] + 4)
-
-    local num_ = copy(input_num_) -- number
-    num_["Text"] = tostring(i)
-    num_.Position[1] = pos_
-    table.insert(graphics, num_)
-
-    local name_ = copy(input_name_)
-    name_['PrettyName'] = "Inputs~Input ".. i .."~Input ".. i .." name"
-    name_.Position[1] = pos_
-    layout["input_" .. i .. "-name"] = name_
-    
-    local gain_ = copy(input_gain_)
-    gain_['PrettyName'] = "Inputs~Input ".. i .."~Input ".. i .." level"
-    gain_.Position[1] = pos_
-    layout["input_" .. i .. "-level"] = gain_
-
-    local dec_ = copy(input_dec_)
-    dec_['PrettyName'] = "Inputs~Input ".. i .."~Input ".. i .." down"
-    dec_.Position[1] = pos_
-    layout["input_" .. i .. "-level_down"] = dec_
-
-    local inc_ = copy(input_inc_)
-    inc_['PrettyName'] = "Inputs~Input ".. i .."~Input ".. i .." up"
-    inc_.Position[1] = pos_ + inc_.Size[1]
-    layout["input_" .. i .. "-level_up"] = inc_
-
-    local aud_signal_ = copy(input_aud_signal_)
-    aud_signal_['PrettyName'] = "Inputs~Input ".. i .."~Input ".. i .." audio signal present"
-    aud_signal_.Position[1] = pos_
-    layout["input_" .. i .. "-signal"] = aud_signal_
-
-    local vid_signal_ = copy(input_vid_signal_)
-    vid_signal_['PrettyName'] = "Inputs~Input ".. i .."~Input ".. i .." video signal present"
-    vid_signal_.Position[1] = pos_ + aud_signal_.Size[1]
-    layout["vid-input_" .. i .. "-signal"] = vid_signal_
-
-  end
-
-  -- draw crosspoints
-  for o = 1, props['Output Count'].Value do -- For each output
-    for i = 1, props['Input Count'].Value do -- For each input
-      layout["vid-input_" .. i .. "-output_" .. o] = { 
-        PrettyName = "Crosspoints~In" .. i .. " -> Out" .. o, 
-        Style = "Button", 
-        Legend = tostring(i), 
-        Size = base_obj_.Size,
-        Position = { base_obj_.Position[1] + (i-1)*(base_obj_.Size[1] + 4),  base_obj_.Position[2] + (o-1)*(base_obj_.Size[2] + 4) } }
+    local res = setmetatable({}, getmetatable(tbl))
+    s[tbl] = res
+    for k, v in pairs(tbl) do
+        res[helper.Copy(k, s)] = helper.Copy(v, s)
     end
-  end
-end;
+    if res==nil then print('Copy(): returning nil') end
+    return res
+  end  
+
+  local large_matrix_size_ = { 12, 12 }
+  -- create objects for each section so they can be modified easily
+  -- add crosspoints (routes, labels, groupbox)
+  local UI_crosspoints = {
+    Position     = { 0, 8 },
+    --Size        = { 0, 0 }, -- GroupBox contains Size of the whole object
+    --buttons
+    Padding     = { 4, 4 },
+    GroupPadding= { 4, 4 },
+    Button      = { Style = "Button", Size = { 36, 36}, Margin = 0 },
+    AudioButton = { Style = "Button", Size = { 16, 12}, Margin = 0, FontSize=9, Color=colors.Red },
+    NameText    = { Style = "Text", Type="Text", Color=colors.White, FontSize=10, HTextAlign="Center", WordWrap = true },
+    NumButtons  = { props['Input Count'].Value, props['Output Count'].Value },
+    Label       = { Style = "Label", Size = { 74, 14}, Type="Text", FontSize=10, HTextAlign="Center", WordWrap = true },
+    Led         = { Style = "Led"  , Size = { 16, 16}, Margin=0, StrokeWidth=1, UnlinkOffColor=false },
+    Outputs     = {}, -- to be filled in Init()
+    AudioOutputs= {}, -- to be filled in Init()
+    --groupbox
+    GroupBox    = { Type="GroupBox", Text="", StrokeWidth=1, CornerRadius=4, HTextAlign="Left" },
+    
+    Init = function (self)
+      if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+        self.Padding     = { 1, 1 }
+        self.Button.Size = { 18, 18 }
+        self.AudioButton.Size = { 8, 6 }
+        self.Led.Size = { 8, 8 }
+        --self.Label.Size = { 37, 7 }
+      end
+      self.GroupBox.Size = {
+        self.Padding[1] + self.NumButtons[1]*(self.Padding[1] + self.Button.Size[1]),
+        self.Padding[2] + self.NumButtons[2]*(self.Padding[2] + self.Button.Size[2]) + self.Label.Size[2]+ self.Padding[2] }
+      self.GroupBox.Position  = self.Position        
+      --local newPos_ = {}
+      local z=0
+      for i=1, self.NumButtons[1] do          
+        for o=1, self.NumButtons[2] do
+          z=z+1
+          local btn_ = helper.Copy(self.Button)
+          btn_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o
+          btn_['Legend'] = tostring(i)
+          btn_['Position']={
+            self.GroupBox.Position[1] + self.Padding[1] + (i-1)*(self.Button.Size[1] + self.Padding[1]), -- moving accross
+            self.GroupBox.Position[2] + self.Padding[2] + (o-1)*(self.Button.Size[2] + self.Padding[2]) + self.Label.Size[2]+ self.Padding[2] } -- moving down
+          btn_['ZOrder'] = z + 0x1000
+          btn_.Layout_ID = "vid-input_" ..i.. "-output_" .. o
+          if self.Outputs[o]==nil then self.Outputs[o]={} end
+          self.Outputs[o][i]=btn_
+
+          local aud_ = helper.Copy(self.AudioButton)
+          aud_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o .. " audio"
+          --btn_['Legend'] = 'A'
+          aud_['Position']={
+            btn_.Position[1] + btn_.Size[1] - aud_.Size[1],
+            btn_.Position[2] + btn_.Size[2] - aud_.Size[2] }
+          btn_['ZOrder'] = z
+          aud_.Layout_ID = "aud-input_" ..i.. "-output_" .. o
+          if self.AudioOutputs[o]==nil then self.AudioOutputs[o]={} end
+          self.AudioOutputs[o][i]=aud_
+        end
+      end
+    end,
+
+    Draw = function(self, layout)
+      table.insert(graphics, self.GroupBox)
+      for _,o in pairs(self.Outputs) do 
+        for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+      end
+      for _,o in pairs(self.AudioOutputs) do 
+        for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+      end
+    end,
+
+    Move = function(self, distance)
+      self.Position[1] = self.Position[1] + distance[1]
+      self.Position[2] = self.Position[2] + distance[2]
+      for _,o in pairs(self.Outputs) do 
+        for _,i in pairs(o) do 
+          i.Position[1] = i.Position[1] + distance[1]
+          i.Position[2] = i.Position[2] + distance[2]
+        end
+      end
+      for _,ao in pairs(self.AudioOutputs) do 
+        for _,ai in pairs(ao) do 
+          ai.Position[1] = ai.Position[1] + distance[1]
+          ai.Position[2] = ai.Position[2] + distance[2]
+        end
+      end
+    end
+  }
+
+  -- add outputs (names, locks)
+  local UI_outputObjects = {
+    --Position    = helper.Copy(UI_crosspoints.GroupBox.Position),
+    Position    = helper.Copy(UI_crosspoints.Position),
+    --buttons
+    Padding     = helper.Copy(UI_crosspoints.Padding),
+    NameText    = helper.Copy(UI_crosspoints.NameText), --Size = { 36, 54}      
+    NumButtons  = props['Output Count'].Value,
+    Buttons     = {}, -- to be filled in Init()
+    Labels      = {}, -- to be filled in Init()
+    --groupbox
+    GroupBox    = helper.Copy(UI_crosspoints.GroupBox),
+
+    Init = function(self)
+      self.NameText.Size = { 76, UI_crosspoints.Button.Size[2] }
+      self.LockButtons = {}
+      -- GroupBox
+      self.GroupBox.Size = {
+        self.Padding[1], -- horiz, to be increased as buttons added
+        UI_crosspoints.GroupBox.Size[2] } -- vert same as crosspoint GroupBox
+      self.GroupBox.Position = self.Position
+      self.GroupBox.Text="Outputs"
+
+      local newPos_ = {}
+
+      for o=1, self.NumButtons do
+        newPos_ = {
+          self.GroupBox.Position[1] + self.Padding[1], -- horiz always the same [output:0][input:0][horiz]
+          UI_crosspoints.Outputs[o][1].Position[2] } -- vert moves down
+        
+          -- left column of labels (numbers only)
+        local num_ = helper.Copy(UI_crosspoints.Label)
+        num_.Size = { 18, UI_crosspoints.Button.Size[2] }
+        num_["Text"] = tostring(o)
+        num_['Position'] = helper.Copy(newPos_)
+        table.insert(self.Labels, num_)
+        newPos_[1] = newPos_[1] + num_.Size[1] + self.Padding[1]
+        if o==1 then self.GroupBox.Size[1] = self.GroupBox.Size[1] + num_.Size[1] + self.Padding[1] end
+
+        -- Names
+        local name_ = helper.Copy(self.NameText)
+        name_['PrettyName'] = "Outputs~".. o .."~name"
+        name_['Position'] = helper.Copy(newPos_)
+        name_.Layout_ID = "output_" .. o .. "-name"
+        table.insert(self.Buttons, name_)
+        newPos_[1] = newPos_[1] + name_.Size[1] + self.Padding[1]
+        if o==1 then self.GroupBox.Size[1] = self.GroupBox.Size[1] + name_.Size[1] + self.Padding[1] end
+      end
+      -- set new position of UI_Crosspoints
+      UI_crosspoints:Move({ newPos_[1] - UI_crosspoints.Outputs[1][1].Position[1] + self.Padding[1], 0})
+      self.GroupBox.Size[1] = self.GroupBox.Size[1] + UI_crosspoints.GroupBox.Size[1]
+    end,
+
+    Draw = function(self, layout)
+      table.insert(graphics, self.GroupBox)
+      for _,l in ipairs(self.Labels ) do table.insert(graphics, l) end
+      for _,b in ipairs(self.Buttons) do layout[b.Layout_ID] = b  end-- layout is the global layout
+    end,
+
+    Move = function(self, distance)
+      self.Position[1] = self.Position[1] + distance[1]
+      self.Position[2] = self.Position[2] + distance[2]
+      for _,l in ipairs(self.Labels) do 
+        l.Position[1] = l.Position[1] + distance[1]
+        l.Position[2] = l.Position[2] + distance[2]
+      end
+      for _,b in pairs(self.Buttons) do 
+        b.Position[1] = b.Position[1] + distance[1]
+        b.Position[2] = b.Position[2] + distance[2]
+      end
+    end
+  }
+
+ -- add inputs (names)
+  local UI_inputObjects = {
+    Position    = {},
+    --buttons
+    Padding     = helper.Copy(UI_crosspoints.Padding),
+    Button      = helper.Copy(UI_crosspoints.Button),
+    Led         = helper.Copy(UI_crosspoints.Led),
+    Label       = helper.Copy(UI_crosspoints.Label),
+    NameText    = helper.Copy(UI_crosspoints.NameText),
+    NumButtons  = props['Input Count'].Value,
+    Nudge       = { Style = "Button", Size = {18,12}, Margin=0, Color=colors.Button, FontColor=colors.White, FontSize=9, CornerRadius=0 },
+    Buttons     = {}, -- to be filled in Init()
+    Labels      = {}, -- to be filled in Init()
+    --groupbox
+    GroupBox    = helper.Copy(UI_crosspoints.GroupBox),
+
+    Init = function(self)
+      self.NameText.Size = { UI_crosspoints.Button.Size[1], 54 }
+      self.Label.HTextAlign = "Right"
+      self.Position = helper.Copy(UI_crosspoints.GroupBox.Position)
+      -- GroupBox   
+      self.GroupBox.Size = {
+        UI_crosspoints.GroupBox.Size[1], -- horiz, same as crosspoints
+        UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.GroupBox.Size[2] + self.Padding[2] } -- vert, increase as objects added   
+      self.GroupBox.Position = self.Position
+      self.GroupBox.Text="Inputs"
+
+      if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+        self.Padding     = {  1, 1 }
+        self.Button.Size = { 18, 18 }
+        self.Led.Size    = { 8, 8 }
+      end
+      local newPos_ = {}
+
+      for i=1, self.NumButtons do
+        newPos_ = {
+          UI_crosspoints.Outputs[1][i].Position[1],
+          self.Position[2] + self.Label.Size[2] + self.Padding[2] } -- vert always the same
+        
+        -- top row of labels (numbers only) above crosspoints
+        local lbl_ = helper.Copy(UI_crosspoints.Label)
+        lbl_.Size[1] = self.Button.Size[1]
+        lbl_["Text"] = tostring(i)            
+        lbl_['Position'] = helper.Copy(newPos_)
+        table.insert(self.Labels, lbl_)
+        newPos_[2] = lbl_.Position[2] + lbl_.Size[2] + self.Padding[2] + UI_crosspoints.GroupBox.Size[2] + self.Padding[2]
+
+        -- below crosspoints
+        -- Audio signal present
+        local asignal_ = helper.Copy(self.Led)
+        asignal_.Color=colors.Red
+        asignal_['PrettyName'] = "Inputs~".. i .."~audio signal present"
+        asignal_['Position'] = helper.Copy(newPos_)
+        asignal_.Layout_ID = "input_" .. i .. "-signal"
+        table.insert(self.Buttons, asignal_)
+        --newPos_[2] = asignal_.Position[2] + asignal_.Size[2] + self.Padding[2]
+        --if i==1 then self.GroupBox.Size[2] = self.GroupBox.Size[2] + asignal_.Size[2] + self.Padding[2] end
+
+        -- Video signal present
+        local vsignal_ = helper.Copy(self.Led)
+        vsignal_.Color=colors.Green
+        vsignal_['PrettyName'] = "Inputs~".. i .."~video signal present"
+        vsignal_['Position'] = { 
+          asignal_.Position[1] + asignal_.Size[1] + self.Padding[1],
+          asignal_.Position[2] }
+        if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+          vsignal_.Position[1] = asignal_.Position[1] + asignal_.Size[1]
+        end
+        vsignal_.Layout_ID = "vid-input_" .. i .. "-signal"
+        table.insert(self.Buttons, vsignal_)
+        if i==1 then 
+          -- label to the left of the groupbox
+          local lbl_signal_ = helper.Copy(self.Label)
+          lbl_signal_["Text"] = "A/V Signal"            
+          lbl_signal_['Position']={
+            self.GroupBox.Position[1] - self.Padding[1] - lbl_signal_.Size[1], 
+            newPos_[2] }
+          lbl_signal_.Size[2] = vsignal_.Size[2]
+          table.insert(self.Labels, lbl_signal_)
+          self.GroupBox.Size[2] = self.GroupBox.Size[2] + vsignal_.Size[2] + self.Padding[2] 
+        end
+        newPos_[2] = vsignal_.Position[2] + vsignal_.Size[2] + self.Padding[2]
+
+        if props['Model'].Value=='Other' then
+            -- Gains
+          local level_ = helper.Copy(self.Button)
+          level_['PrettyName'] = "Inputs~".. i .."~level"
+          level_['Position'] = helper.Copy(newPos_)
+          level_['Style'] = "Fader"
+          level_.ShowTextbox = true
+          if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+            level_.Size[2] = 75
+          else
+            level_.Size[2] = 112
+          end
+          level_.Layout_ID = "input_" .. i .. "-level"
+          table.insert(self.Buttons, level_)
+          if i==1 then
+            -- label to the left of the groupbox
+            local lbl_level_ = helper.Copy(self.Label)
+            lbl_level_["Text"] = "Gain"            
+            lbl_level_['Position']={
+              self.GroupBox.Position[1] - self.Padding[1] - lbl_level_.Size[1], 
+              newPos_[2] }
+              lbl_level_.Size[2] = level_.Size[2]
+            table.insert(self.Labels, lbl_level_)
+            self.GroupBox.Size[2] = self.GroupBox.Size[2] + level_.Size[2] + self.Padding[2]
+          end
+          newPos_[2] = level_.Position[2] + level_.Size[2]-- + self.Padding[2]
+
+          --Gain dec
+          local dec_ = helper.Copy(self.Nudge)
+          dec_['PrettyName'] = "Inputs~".. i .."~down"
+          dec_['Position'] = helper.Copy(newPos_)
+          if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+            dec_.Position[2] = dec_.Position[2] + dec_.Size[2] 
+          end
+          dec_.Text = "-"
+          dec_.String = "-=1"
+          dec_.Layout_ID = "input_" .. i .. "-level_down"
+          table.insert(self.Buttons, dec_)
+          --newPos_[2] = dec_.Position[2] + dec_.Size[2] + self.Padding[2]
+          --if i==1 then self.GroupBox.Size[2] = self.GroupBox.Size[2] + dec_.Size[2] + self.Padding[2] end
+
+          --Gain inc
+          local inc_ = helper.Copy(dec_)
+          inc_['PrettyName'] = "Inputs~".. i .."~up"
+          if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+            inc_.Position[2] = newPos_[2] 
+          else
+            inc_.Position[1] = dec_.Position[1] + dec_.Size[1]
+          end
+          inc_.Text = "+"
+          inc_.String = "+=1"
+          inc_.Layout_ID = "input_" .. i .. "-level_up"
+          table.insert(self.Buttons, inc_)
+          if i==1 then self.GroupBox.Size[2] = self.GroupBox.Size[2] + inc_.Size[2] + self.Padding[2] end
+          if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+            newPos_[2] = dec_.Position[2] + dec_.Size[2] + self.Padding[2]
+          else
+            newPos_[2] = inc_.Position[2] + inc_.Size[2] + self.Padding[2]
+          end
+        end
+
+        -- Names
+        local name_ = helper.Copy(self.NameText)
+        name_['PrettyName'] = "Inputs~".. i .."~name"
+        name_['Position'] = helper.Copy(newPos_)
+        name_.Layout_ID = "input_" .. i .. "-name"
+        table.insert(self.Buttons, name_)
+        if i==1 then
+          -- label to the left of the groupbox
+          local lbl_name_ = helper.Copy(self.Label)
+          lbl_name_["Text"] = "Label"            
+          lbl_name_['Position']={
+            self.GroupBox.Position[1] - self.Padding[1] - lbl_name_.Size[1], 
+            newPos_[2] }
+          lbl_name_.Size[2] = name_.Size[2]
+          table.insert(self.Labels, lbl_name_)
+          self.GroupBox.Size[2] = self.GroupBox.Size[2] + name_.Size[2] + self.Padding[2]
+        end
+        newPos_[2] = name_.Position[2] + name_.Size[2] + self.Padding[2]
+      end
+      
+      -- move other objects down
+      UI_crosspoints:Move  ({0, UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] })
+      UI_outputObjects:Move({0, UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] })
+    end,
+
+    Draw = function(self, layout)
+      table.insert(graphics, self.GroupBox)
+      for _,l in ipairs(self.Labels ) do table.insert(graphics, l) end
+      for _,b in ipairs(self.Buttons) do  layout[b.Layout_ID] = b end -- layout is the global layout
+    end,
+
+    Move = function(self, distance)
+      self.Position[1] = self.Position[1] + distance[1]
+      self.Position[2] = self.Position[2] + distance[2]
+      self.GroupBox.Position[1] = self.GroupBox.Position[1] + distance[1]
+      self.GroupBox.Position[2] = self.GroupBox.Position[2] + distance[2]
+      for _,l in ipairs(self.Labels) do 
+        l.Position[1] = l.Position[1] + distance[1]
+        l.Position[2] = l.Position[2] + distance[2]
+      end
+      for _,b in pairs(self.Buttons) do 
+        b.Position[1] = b.Position[1] + distance[1]
+        b.Position[2] = b.Position[2] + distance[2]
+      end
+    end
+  }
+
+  -- add post fade objects (source ComboBoxes)
+  local UI_postFadeObjects = {
+    Position    = helper.Copy(UI_crosspoints.Position),
+    --buttons
+    Button      = helper.Copy(UI_crosspoints.Button),
+    Label       = helper.Copy(UI_crosspoints.Label),
+    Padding     = helper.Copy(UI_crosspoints.Padding),
+    Selector    = { Style = "ComboBox", Type="Text", Size={76, UI_crosspoints.Button.Size[2]}, Color=colors.White, FontSize=10, HTextAlign="Center", WordWrap = true },
+    NumButtons  = props['Output Count'].Value,
+    Buttons     = {}, -- to be filled in Init()
+    Labels      = {}, -- to be filled in Init()
+    --groupbox
+    GroupBox    = helper.Copy(UI_crosspoints.GroupBox),
+
+    Init = function(self)
+      -- GroupBox
+      self.GroupBox.Size = {
+          self.Padding[1], -- horiz, to be increased as buttons added
+          UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] + UI_crosspoints.GroupBox.Size[2] } -- vert, increase as objects added   
+      self.GroupBox.Position = {
+        UI_crosspoints.GroupBox.Position[1] + UI_crosspoints.GroupBox.Size[1] + self.Padding[1],
+        UI_inputObjects.GroupBox.Position[2] }
+      self.GroupBox.Text="Output"
+      --self.Label.HTextAlign="Right"
+      if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+        self.Padding = { 1, 1 }
+        self.Button.Size = { 18, 18 }
+        self.Selector.Size[2] = 18
+        self.Label.FontSize = 6
+      end
+      local newPos_ = {}
+
+      for o=1, self.NumButtons do
+        local newPos_ = {
+          self.GroupBox.Position[1] + self.Padding[1], 
+          UI_crosspoints.Outputs[o][1].Position[2] }
+        
+        -- A/V Mutes
+        local amute_ = helper.Copy(self.Button)
+        amute_['Color'] = colors.Red
+        if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
+          amute_.Size[2] = 8
+        else
+          amute_.Size[2] = 16
+        end
+        amute_['PrettyName'] = "Outputs~".. o .."~mute"
+        amute_['Position'] = helper.Copy(newPos_) 
+        amute_.Layout_ID = "output_" .. o .. "-mute"
+        table.insert(self.Buttons, amute_)
+
+        local vmute_ = helper.Copy(amute_)
+        vmute_.Color = colors.Green
+        vmute_['PrettyName'] = "Outputs~".. o .."~disable"
+        vmute_.Position[2] = amute_.Position[2] + amute_.Size[2] + self.Padding[2]
+        vmute_.Layout_ID = "output_" .. o .. "-disable"
+        table.insert(self.Buttons, vmute_)
+
+        -- top row mutes label (text only) above crosspoints GroupBox
+        if o==1 then
+          local lbl_mute_ = helper.Copy(self.Label)
+          lbl_mute_.Size = {
+            self.Button.Size[1] + 2*self.Padding[1], -- need it wider so use up all the padding
+            22 } 
+          lbl_mute_["Text"] = "Aud/Vid Mute"            
+          lbl_mute_['Position']={
+            self.GroupBox.Position[1], -- horiz moves accross
+            self.Position[2] + UI_crosspoints.Label.Size[2] } -- vert always the same
+          table.insert(self.Labels, lbl_mute_)
+
+          self.GroupBox.Size[1] = self.GroupBox.Size[1] + amute_.Size[1] + self.Padding[1]
+        end
+        newPos_[1] = newPos_[1] + amute_.Size[1] + self.Padding[1]
+               
+        if props['Model'].Value=='Other' then
+          -- Gain knob
+          local gain_ = helper.Copy(self.Button)
+          gain_['PrettyName'] = "Outputs~".. o .."~level"
+          gain_['Style'] = "Knob"
+          gain_['Position'] = helper.Copy(newPos_)
+          gain_.Layout_ID = "output_" .. o .. "-level"
+          table.insert(self.Buttons, gain_)
+
+          -- top row gain knob label (text only) above crosspoints GroupBox
+          if o==1 then
+            local lbl_gain_ = helper.Copy(self.Label)
+            lbl_gain_.Size[1] = self.Button.Size[1]
+            lbl_gain_["Text"] = "Gain"            
+            lbl_gain_['Position']={
+              newPos_[1], -- horiz moves accross
+              self.Position[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] } -- vert always the same
+            table.insert(self.Labels, lbl_gain_)
+            self.GroupBox.Size[1] = self.GroupBox.Size[1] + gain_.Size[1] + self.Padding[1]
+          end
+          newPos_[1] = newPos_[1] + gain_.Size[1] + self.Padding[1]
+        end
+        
+        -- source select ComboBox
+        local selector_ = helper.Copy(self.Selector)
+        selector_['PrettyName'] = "Outputs~".. o .."~source"
+        selector_['Position']= helper.Copy(newPos_)
+        selector_.Layout_ID = "output_" .. o .. "-source"
+        table.insert(self.Buttons, selector_)
+
+        -- top row selector label (text only) above crosspoints GroupBox
+        if o==1 then
+          local lbl_selector_ = helper.Copy(self.Label)
+          lbl_selector_.Size[1] = selector_.Size[1]
+          lbl_selector_["Text"] = "Input select"            
+          lbl_selector_['Position']={
+            newPos_[1], -- horiz moves accross
+            self.Position[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] } -- vert always the same
+          table.insert(self.Labels, lbl_selector_)
+          self.GroupBox.Size[1] = self.GroupBox.Size[1] + selector_.Size[1] + self.Padding[1]
+        end
+        newPos_[1] = newPos_[1] + selector_.Size[1] + self.Padding[1]
+
+      end
+
+      UI_outputObjects.GroupBox.Size[1] = UI_outputObjects.GroupBox.Size[1] + self.Padding[1] + self.GroupBox.Size[1]
+    end,
+
+    Draw = function(self, layout)
+      table.insert(graphics, self.GroupBox)
+      for _,l in ipairs(self.Labels ) do table.insert(graphics, l) end
+      for _,b in ipairs(self.Buttons) do layout[b.Layout_ID] = b  end-- layout is the global layout
+    end,
+
+    Move = function(self, distance)
+      self.Position[1] = self.Position[1] + distance[1]
+      self.Position[2] = self.Position[2] + distance[2]
+      for _,l in ipairs(self.Labels) do 
+        l.Position[1] = l.Position[1] + distance[1]
+        l.Position[2] = l.Position[2] + distance[2]
+      end
+      for _,b in pairs(self.Buttons) do 
+        b.Position[1] = b.Position[1] + distance[1]
+        b.Position[2] = b.Position[2] + distance[2]
+      end
+    end
+  }
+
+  UI_crosspoints:Init() -- initialize the crosspoints so other components can reference it's positions
+  UI_outputObjects:Init() -- this also moves crosspoints to the right
+  UI_inputObjects:Init() -- this also moves crosspoints down
+  UI_postFadeObjects:Init() -- this also expands output GroupBox to the right
+  
+  UI_crosspoints:Draw(layout)
+  UI_outputObjects:Draw(layout)
+  UI_inputObjects:Draw(layout)
+  UI_postFadeObjects:Draw(layout)
+
+end

@@ -12,6 +12,10 @@ Source code location: <https://github.com/rod-driscoll/q-sys-plugin-kramer-proto
 
 ## Deploying code
 
+Copy the *.qplug file into "%USERPROFILE%\Documents\QSC\Q-Sys Designer\Plugins" then drag the plugin into a design.
+
+## Developing code
+
 Instructions and resources for Q-Sys plugin development is available at:
 
 * <https://q-syshelp.qsc.com/DeveloperHelp/>
@@ -37,6 +41,7 @@ The files in "./DEV/" are for dev only and may not be the most current code, the
 ### Features not tested
 
 * Input and output gain (not supported on VS-88 dev system)
+* Audio follow video, the protocol manuals have several different audio and video commands with some flagged as legacy, all with insufficient explanation.
 * Serial control
 
 ### Features not implemented
@@ -44,6 +49,11 @@ The files in "./DEV/" are for dev only and may not be the most current code, the
 * Authentication (protocol does not require authentication)
 * HDCP enable and status
 * Audio embed
+
+## Dependencies
+
+Uses the module "Helpers" which is located in /DEV/Helpers.
+To install module dependencies copy the whole directory into "%USERPROFILE%\Documents\QSC\Q-Sys Designer\Modules" and then in Designer go to Tools > Designer Resources, and Install the module.
 
 ## References
 

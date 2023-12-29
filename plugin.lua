@@ -1,7 +1,3 @@
--- Q-Sys plugin for Kramer Protocol 3000
--- <https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000>
--- 20231106 v1.0.0 Rod Driscoll<rod@theavitgroup.com.au>
-
 -- Information block for the plugin
 --[[ #include "info.lua" ]]
 

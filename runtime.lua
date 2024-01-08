@@ -322,7 +322,7 @@ if ConnectionType == "Serial" then
 else
 	print("TCP Mode Initializing...")
 	IPAddress = Controls.IPAddress
-		Port = Controls.Port
+	Port = Controls.TcpPort
 	-- Create Sockets
 	Comms = TcpSocket.New()
 	Comms.ReconnectTimeout = 5
@@ -357,13 +357,13 @@ else
 	-- Clear old and open the socket
 	function Connect()
 		if DebugFunction then print("Connect() Called") end
-		if IPAddress.String ~= "Enter an IP Address" and IPAddress.String ~= "" and Port.String ~= "" then
+		if IPAddress.String ~= "Enter an IP Address" and IPAddress.String ~= "" then
 		if Comms.IsConnected then
 			Comms:Disconnect()
 		end
-		Comms:Connect(IPAddress.String, tonumber(Port.String))
+		Comms:Connect(IPAddress.String, Port.Value)
 		else
-		ReportStatus("MISSING","No IP Address or Port")
+			ReportStatus("MISSING","No IP Address")
 		end
 	end
 		
@@ -420,19 +420,19 @@ else
 		Controls["IPAddress"].String = "Enter an IP Address"
 		end
 		ClearVariables()
-		Init()
+		Initialize()
 	end
 
 	Controls["TcpPort"].EventHandler = function()
 		if DebugFunction then print("Port Event Handler Called") end
 		ClearVariables()
-		Init()
+		Initialize()
 	end
 
 	Controls["DeviceID"].EventHandler = function()
 		if DebugFunction then print("DeviceID Event Handler Called") end
 		ClearVariables()
-		Init()
+		Initialize()
 	end
 
 end

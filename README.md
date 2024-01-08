@@ -13,6 +13,10 @@ Source code location: <https://github.com/rod-driscoll/q-sys-plugin-kramer-proto
 ## Deploying code
 
 Copy the *.qplug file into "%USERPROFILE%\Documents\QSC\Q-Sys Designer\Plugins" then drag the plugin into a design.
+If you have dependency issues then a copy of the dependencies is contained in the DEV folder:
+
+- copy ./Dev/helpers into "%USERPROFILE%\Documents\QSC\Q-Sys Designer\Modules"
+- In Q-Sys Designer; navigate to "Tools" > "Design Resources" and install "helpers"
 
 ## Developing code
 

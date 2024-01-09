@@ -26,6 +26,11 @@ CommandTimeout = 5
 CommunicationTimer = Timer.New()
 TimeoutCount = 0
 
+local Layers = { Video = 1, Audio = 2, Data  = 3, IR = 4, USB = 5 }
+local AudioLayer = { Analog = 0, Digital = 1 }
+local QueryRouteType = Layers.Video
+local UpdatingVideoChoices = false
+
 --Hide controls that are just for pins
 --Controls["ModelNumber"].IsInvisible=true
 --Controls["PanelType"].IsInvisible=true
@@ -47,6 +52,7 @@ local Request = {
 	HPD				={Command="DISPLAY",	Data=""},
 	DipSwitch		={Command="DPSW-STATUS",Data=""},
 	EthernetPort	={Command="ETH-PORT",	Data=""},
+	ExternalAudio	={Command="EXT-AUD",	Data=""},
 	Error			={Command="ERR",		Data=""},
 	FactoryReset	={Command="FACTORY",	Data=""},
 	FPGAVersion		={Command="FPGA-VER",	Data=""},
@@ -86,6 +92,7 @@ local Request = {
 	VGAPhase		={Command="VGA-PHASE",	Data=""},
 	VideoMute		={Command="VMUTE",		Data=""},
 	VideoRoute   ={Command="VID",Data=""}, -- Legacy
+	Volume		={Command="VOLUME",		Data=""},
 }
 
 -- Helper functions
@@ -181,6 +188,7 @@ function Connected()
 	CommunicationTimer:Stop()
 	Heartbeat:Start(PollRate)
 	CommandProcessing = false
+	if Controls["DeviceName"].String == "" then	GetDeviceInfo() end
 	QueryRoutes()
 	SendNextCommand()
 	end
@@ -200,7 +208,8 @@ function Connected()
 --  { Command=string, Data={string} }
 function Send(cmd, sendImmediately)
 	if DebugFunction then print("DoSend() Called") end
-	local value = "#".. cmd.Command .. " " .. cmd.Data .. 0x0d
+	--local value = "#".. cmd.Command .. " " .. cmd.Data .. 0x0d
+	local value = "#".. cmd.Command .. " " .. cmd.Data .. '\x0D'
 
 	--Check for if a command is already queued
 	for i, val in ipairs(CommandQueue) do
@@ -224,7 +233,7 @@ end
 -- Close the current and start a new connection with the next command
 -- This was included due to behaviour within the Comms Serial; may be redundant check on TCP mode
 CommunicationTimer.EventHandler = function()
-	if DebugFunction then print("CommunicationTimer Event (timeout) Called") end
+	if DebugFunction then print("Ethernet Socket Handler Called("..tostring(evt)..")") end
 	ReportStatus("MISSING","Communication Timeout")
 	CommunicationTimer:Stop()
 	CommandProcessing = false
@@ -240,7 +249,7 @@ if ConnectionType == "Serial" then
 
 	--Send the display the next command off the top of the queue
 	function SendNextCommand()
-	if DebugFunction then print("SendNextCommand() Called") end
+	--if DebugFunction then print("SendNextCommand() Called") end
 	if CommandProcessing then
 		-- Do Nothing
 	elseif #CommandQueue > 0 then
@@ -331,7 +340,7 @@ else
 
 	--Send the display the next command off the top of the queue
 	function SendNextCommand()
-		if DebugFunction then print("SendNextCommand() Called") end
+		--if DebugFunction then print("SendNextCommand() Called") end
 		if CommandProcessing then
 		-- Do Nothing
 		elseif #CommandQueue > 0 then
@@ -369,7 +378,7 @@ else
 		
 	-- Handle events from the socket;  Nearly identical to Serial
 	Comms.EventHandler = function(sock, evt, err)
-		if DebugFunction then print("Ethernet Socket Handler Called") end
+		if DebugFunction then print("Ethernet Socket Handler Called("..tostring(evt)..")") end
 		if evt == TcpSocket.Events.Connected then
 		ReportStatus("OK","")
 		Connected()
@@ -487,12 +496,47 @@ function PrintError(msg)
 	end
 end
 
+local current_source = {}
+
+function SetVideoChoicesFeedback(output)
+	--if DebugFunction and output==1 then print("SetVideoChoicesFeedback("..output..")") end
+	current_source[Layers.Video] 				 = current_source[Layers.Video] or {}
+	current_source[Layers.Video][output] = current_source[Layers.Video][output] or 0
+	if current_source[Layers.Video][output]==0 then
+		Controls["output_"..output.."-source"].String = ""		
+	else
+		Controls["output_"..output.."-source"].String = Controls["input_"..current_source[Layers.Video][output].."-name"].String		
+	end
+end
+
+function UpdateVideoChoices()
+	if not UpdatingVideoChoices then
+		UpdatingVideoChoices = true 
+		Timer.CallAfter(function()
+			if DebugFunction then print("UpdateVideoChoices()") end
+			local InputChoices = {}
+			for i=1, Properties['Input Count'].Value do
+				table.insert(InputChoices, Controls["input_"..i.."-name"].String)
+			end
+			for o=1, Properties['Output Count'].Value do
+				Controls["output_"..o.."-source"].Choices = InputChoices
+				SetVideoChoicesFeedback(o)
+			end
+			UpdatingVideoChoices = false
+		end		
+		, 1)
+	end
+end
+
+
 function SetRouteFeedback(layer, output, input)
 	if DebugFunction then print("SetRouteFeedback(layer: "..layer..", output: "..output..", index: "..input..")") end
 	--if DebugFunction then print('Handling Route: "'..msg["Data"]..'"') end
 	if output~=nil and input~=nil then
 		local in_ = tonumber(input)
 		local out_ = tonumber(output)
+		current_source[layer] = current_source[layer] or {}
+		current_source[layer][output] = input
 		if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
 			for i=1, Properties['Input Count'].Value do
 				if layer==Layers.Video then
@@ -502,6 +546,7 @@ function SetRouteFeedback(layer, output, input)
 				end   
 			end
 		end
+		if layer==Layers.Video then SetVideoChoicesFeedback(output) end
 	end
 end
 
@@ -531,12 +576,13 @@ function QueryLabels()
 	if DebugFunction then print("QueryLabels())") end
 	for i=1, Properties['Input Count'].Value do
 		local cmd_ = {Command = Request["Label"].Command, Data = '0,'..i }
-		if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data..',Input '..i)) end
+		--if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data..',Input '..i)) end
+		if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, '0,'..i..',on,INPUT '..i)) end
 		Query(cmd_)
 	end
 	for o=1, Properties['Output Count'].Value do
 		local cmd_ = {Command = Request["Label"].Command, Data = '1,'..o }
-		if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data..',Output '..o)) end
+		if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, '1,'..o..',on,OUTPUT '..o)) end
 		Query(cmd_)
 	end
 end
@@ -555,11 +601,9 @@ function QueryLevelRanges()
 	end
 end
 
---local function QueryRoutes()
-local QueryRoutes = function()
-if DebugFunction then print("QueryRoutes()") end
-	Query({Command = Request["Route"].Command, Data = Layers.Video ..',*'})
-	Query({Command = Request["Route"].Command, Data = Layers.Audio ..',*'})
+function QueryRoutes()
+	if DebugFunction then print("QueryRoutes()") end		
+	Query({Command = Request["Route"].Command, Data = QueryRouteType ..',*'})
 end
 
 --[[  Response Data parser
@@ -577,7 +621,7 @@ end
 	Recursively call if there is more data after the suffix. Stuff incomplete messages in the buffer
 ]]
 function ParseResponse(msg)
-	if DebugFunction then print("ParseResponse() Called") end
+	--if DebugFunction then print("ParseResponse() Called") end
 	Controls["ReceivedString"].String = msg
 	local delimPos_ = msg:find("\x0d\x0a")
 	local valid_ = msg:len()>0 and delimPos_~=nil
@@ -596,11 +640,11 @@ function ParseResponse(msg)
 	else
 		--Pack the data for the handler
 		local m1_,m2_,m3_ = msg:match('~([^@]+)@([^ ]*) ([^\x0d]+)\x0d\x0a')
+		if m1_==nil then  m1_,m2_,m3_= msg:match('~([^@]+)@(%a+)(%d+)\x0d\x0a') end
 		local ResponseObj = { ['DeviceID']=m1_, ['Command']=m2_, ['Data']=m3_ }
 		if DebugFunction then print('DeviceID: '..m1_..', Command: "'..m2_..'", data: "'..m3_..'"') end
 		--if DebugFunction then print('cResponseObj[DeviceID]:'..ResponseObj['DeviceID']) end
-		
-		if ResponseObj['Command']:len()==0 and ResponseObj['Data']:lower() == 'ok' then
+		if ResponseObj['Command']:len()==0 and ResponseObj['Data']~=nil and ResponseObj['Data']:lower() == 'ok' then
 			if DebugFunction then print('device id set: '..ResponseObj['DeviceID']) end
 			Controls['DeviceID'].Value = tonumber(ResponseObj['DeviceID'])
 		elseif Controls['DeviceID'].Value == nil then
@@ -752,7 +796,8 @@ function HandleResponse(msg)
 	elseif msg.Command==Request["Label"].Command then
 		if DebugFunction then print("Label: "..msg["Data"]) end
 		local io_ = vals_[1]=='0' and 'in' or 'out'
-		Controls[io_ .. "put_" .. vals_[2] .. "-name"].String = vals_[3]
+		Controls[io_ .. "put_" .. vals_[2] .. "-name"].String = vals_[4]
+		if io_=='in' then UpdateVideoChoices() end
 
 	--Audio
 	elseif msg.Command==Request["AudioEmbedding"].Command then
@@ -815,6 +860,15 @@ function HandleResponse(msg)
 		if #vals_>2 then
 			Controls[layerName_.."_"..vals_[2].."-level"].Value = tonumber(vals_[3]) 
 		end
+		
+	elseif msg.Command==Request["Volume"].Command then
+		if DebugFunction then print("Volume: "..msg["Data"]) end
+		local val_ = tonumber(vals_[2])  --TODO: convert this to a log
+		if val_ > 50 then
+			Controls["output_"..vals_[1].."-level"].Value = (tonumber(vals_[2])-50)/2 -- 51 to 100 is (1 to 24)
+		else
+			Controls["output_"..vals_[1].."-level"].Value = (tonumber(vals_[2])-50)*83/51 -- 0 to 50 is (-83 to 0)
+		end
 
 	elseif msg.Command==Request["AudioFollowVideo"].Command then
 		if DebugFunction then print("AudioFollowVideo: "..msg["Data"]) end
@@ -856,11 +910,17 @@ function HandleResponse(msg)
 			print("output: "..vals_[1].." video mute: "..vals_[2]) 
 		end
 		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
-			Controls["output_"..vals_[1].."-disable"].Boolean = (vals_[2]~="1") --0:disabled, 1:enabled, 2:blank(not all models)
+			Controls["output_"..vals_[1].."-disable"].Boolean = (vals_[2]=="1") --1:disabled, 1:enabled, 2:blank(not all models)
 		end
 
-	elseif msg.Command==Request["Route"].Command then -- "ROUTE 1,2,3"
-		SetRouteFeedback(vals_[1], vals_[2], vals_[3])
+	elseif msg.Command==Request["Route"].Command then -- "ROUTE 1,2,3" (laver, output, input) or "ROUTE 1,1,1,1,1,1,1,1" (each val is an output-it could be any layer though)
+		-- best off not to use this because the response is ambiguous
+		-- it could be a single route with layer data or all routes with no reference to which payer
+		if #vals_== 3 then SetRouteFeedback(vals_[1], vals_[2], vals_[3])
+		else
+			for out_=1, #vals_ do SetRouteFeedback(QueryRouteType, out_, vals_[out_]) end			
+			QueryRouteType = QueryRouteType == Layers.Video and Layers.Audio or Layers.Video; --toggle the type of route to query next time
+		end
 
 	elseif msg.Command==Request["AvRoute"].Command then 
 		local in_, out_ = string.match(msg["Data"], "(%d+)>(%d+)") -- "AV 1>2"
@@ -874,7 +934,16 @@ function HandleResponse(msg)
 	elseif msg.Command==Request["AudioRoute"].Command then
 		local in_, out_ = string.match(msg["Data"], "(%d+)>(%d+)") -- "AUD 1>2"
 		SetRouteFeedback(Layers.Audio, out_, in_)
-
+		
+	elseif msg.Command==Request["ExternalAudio"].Command then -- "EXT-AUD 0,2,0,3" -<output type>,<output>,<input type>,<input>
+		local OutType_ = vals_[1] -- ana=0, dig=1
+		local out_  	 = vals_[2]
+		local InType_  = vals_[3] -- ana=0, dig=1
+		local in_ 		 = vals_[4]
+		if OutType_=='1' and InType_=='1' then
+			SetRouteFeedback(Layers.Audio, out_, in_)
+			--TODO: handle audio routes
+		end
 	else
 			print("Response not handled")
 	end
@@ -951,8 +1020,14 @@ end
 
 local function SetOutputLevel(index, value)
 	if DebugFunction then print("Set output " .. index .. " level to " .. value) end
-	local cmd_ = Request["AudioLevel"]
-	cmd_.Data = '1' ..','..index..','.. math.floor(value)
+	--local cmd_ = Request["AudioLevel"]
+	--cmd_.Data = '1' ..','..index..','.. math.floor(value)
+	local cmd_ = Request["Volume"]
+	if value > 0 then -- 1-24 becomes 51-100
+		cmd_.Data = index..','.. math.floor(value*2+50)
+	else 							-- -83-0 becomes 0-50
+		cmd_.Data = index..','.. math.floor((value+83)*50/83)
+	end
 	Send(cmd_)
 	--if SimulateFeedback and tonumber(value)~=nil then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
 end
@@ -977,7 +1052,7 @@ end
 local function SetOutputLabel(index, value)
 	if DebugFunction then print("Set output " .. index .. " label to " .. value) end
 	local cmd_ = Request["Label"]
-	cmd_.Data = '1,'.. index .. ',' .. value
+	cmd_.Data = '1,'.. index .. ',on,' .. value
 	--cmd_.Data = '1,'.. index .. ',1,' .. value -- the extra 1 is for enable custom label
 	Send(cmd_)
 	--if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
@@ -986,7 +1061,7 @@ end
 local function SetInputLabel(index, value)
 	if DebugFunction then print("Set output " .. index .. " label to " .. value) end
 	local cmd_ = Request["Label"]
-	cmd_.Data = '0,'.. index .. ',' .. value
+	cmd_.Data = '0,'.. index .. ',on,' .. value
 	--cmd_.Data = '0,'.. index .. ',1,' .. value -- the extra 1 is for enable custom label
 	Send(cmd_)
 	--if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
@@ -1027,8 +1102,6 @@ end
 function Initialize()
 	if DebugFunction then print("Initialize() Called: "..GetPrettyName()) end
 	--helper.TablePrint(Controls, 1)
-	Layers = { Video = 1, Audio = 2, Data  = 3, IR = 4, USB = 5 }
-
 	-- EventHandlers
 	Controls["AFV"].EventHandler = function(ctl) 
 		if DebugFunction then print("Audio follow video pressed") end
@@ -1061,6 +1134,7 @@ function Initialize()
 					SetAvRoute(o, i, ctl.Value)
 					if(o == 0) then ctl.Value = 0 end -- let the individual output buttons track state
 				end
+
 				Controls["aud-input_" .. i .. "-output_" .. o].EventHandler = function(ctl) 
 					if DebugFunction then print("vid-input_" .. i .. "-output_" .. o .. " pressed") end
 					--SetRoute(Layers.Audio, o, i, ctl.Value)
@@ -1088,7 +1162,15 @@ function Initialize()
 				if DebugFunction then print("output_".. o .."-name changed, Value: "..ctl.String) end
 				SetOutputLabel(o, ctl.String)
 			end
-			
+
+			Controls["output_"..o.."-source"].EventHandler = function(ctl) 
+				if DebugFunction then print("output_" .. o .. "source changed to: "..ctl.String) end
+				if DebugFunction then print("output_" .. o .. "source changed to: "..ctl.Value) end
+				local i = helper.find_value(ctl.Choices, ctl.String)
+				--SetRoute(Layers.Video, o, i, ctl.Value)
+				SetAvRoute(o, i, true)
+			end
+
 		end
 		
 		-- Input EventHandlers
@@ -1157,8 +1239,8 @@ Heartbeat.EventHandler = function()
 	if DebugFunction then print("Heartbeat Event Handler Called - CommandQueue size: "..#CommandQueue) end
 	if #CommandQueue < 1 then
 		for i = 1, Properties['Input Count'].Value do
-			Query({ Command=Request["SignalPresent"].Command, Data='1,'..tostring(i) })
-			Query({ Command=Request["AudioSignalPresent"].Command, Data='1,'..tostring(i) })
+			Query({ Command=Request["SignalPresent"].Command, Data=tostring(i) })
+			Query({ Command=Request["AudioSignalPresent"].Command, Data=tostring(i) })
 		end
 	end
 end

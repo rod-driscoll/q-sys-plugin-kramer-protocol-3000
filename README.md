@@ -8,15 +8,28 @@ Platform: Q-Sys
 Source code location: <https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000>
 
 ![Settings tab](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/content/images/ui-tab-settings.png)\
-![Matrix switcher tab](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/content/images/ui-tab-matrix-switcher.png)
+![Matrix switcher tab](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/content/images/ui-tab-matrix-switcher.png)\
+![Utilities tab](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/content/images/ui-tab-utilities.png)
+
+## Demo project
+
+A working demo Q-Sys Designer project is located at [//demo/Kramer Protocol 3000 - Demo.qsys](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/demo/Kramer%20Protocol%203000%20-%20DEV.qsys)\
+The demo project has all dependencies pre-loaded so it ready to load to use.
 
 ## Deploying code
 
-Copy the *.qplug file into "%USERPROFILE%\Documents\QSC\Q-Sys Designer\Plugins" then drag the plugin into a design.
-If you have dependency issues then a copy of the dependencies is contained in the DEV folder:
+### Dependencies
 
-- copy ./Dev/helpers into "%USERPROFILE%\Documents\QSC\Q-Sys Designer\Modules"
-- In Q-Sys Designer; navigate to "Tools" > "Design Resources" and install "helpers"
+Install dependencies before installing the plugin.\
+Dependencies (modules) are stored in the [//dependencies](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/dependencies/) folder
+
+Copy any/all module folders in the dependencies directly to the Q-Sys modules folder on your PC.\
+For more detailed instructions on installing dependencies follow the instructions in the README located in the dependencies folder.
+
+### The compiled plugin
+
+The compiled plugin file is located in this repo at [//demo/q-sys-plugin-kramer-protocol-3000.qplug](https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000/blob/main/demo/q-sys-plugin-kramer-protocol-3000.qplug)\
+Copy the *.qplug file into "**%USERPROFILE%\Documents\QSC\Q-Sys Designer\Plugins**" then drag the plugin into a design.
 
 ## Developing code
 
@@ -53,11 +66,6 @@ The files in "./DEV/" are for dev only and may not be the most current code, the
 * Authentication (protocol does not require authentication)
 * HDCP enable and status
 * Audio embed
-
-## Dependencies
-
-Uses the module "Helpers" which is located in /DEV/Helpers.
-To install module dependencies copy the whole directory into "%USERPROFILE%\Documents\QSC\Q-Sys Designer\Modules" and then in Designer go to Tools > Designer Resources, and Install the module.
 
 ## References
 

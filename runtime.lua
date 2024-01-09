@@ -416,10 +416,10 @@ else
 	--Ethernet specific event handlers
 	Controls["IPAddress"].EventHandler = function()
 		if DebugFunction then print("IP Address Event Handler Called") end
-		if Controls["IPAddress"].String == "" then
-		Controls["IPAddress"].String = "Enter an IP Address"
-		end
 		ClearVariables()
+		if Controls["IPAddress"].String == "" then
+			Controls["IPAddress"].String = "Enter an IP Address"
+		end
 		Initialize()
 	end
 
@@ -555,7 +555,9 @@ function QueryLevelRanges()
 	end
 end
 
-local function QueryRoutes()
+--local function QueryRoutes()
+local QueryRoutes = function()
+if DebugFunction then print("QueryRoutes()") end
 	Query({Command = Request["Route"].Command, Data = Layers.Video ..',*'})
 	Query({Command = Request["Route"].Command, Data = Layers.Audio ..',*'})
 end
@@ -1139,11 +1141,14 @@ function Initialize()
 		end
 	end
 
+	if System.IsEmulating then 
+		--QueryRoutes()
+		TestFeedbacks() 
+	else
+	end
 	Disconnected()
 	Connect()
 	GetDeviceInfo()
-	if System.IsEmulating then TestFeedbacks() end
-	
 	Heartbeat:Start(PollRate)
 end
 

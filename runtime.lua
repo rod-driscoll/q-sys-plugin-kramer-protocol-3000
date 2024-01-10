@@ -23,6 +23,7 @@ CommandQueue = {}
 CommandProcessing = false
 --Internal command timeout
 CommandTimeout = 5
+if System.IsEmulating then CommandTimeout = 120 end
 CommunicationTimer = Timer.New()
 TimeoutCount = 0
 
@@ -207,10 +208,9 @@ function Connected()
 -- Take a request object and queue it for sending.  Object format is of:
 --  { Command=string, Data={string} }
 function Send(cmd, sendImmediately)
-	if DebugFunction then print("DoSend() Called") end
-	--local value = "#".. cmd.Command .. " " .. cmd.Data .. 0x0d
-	local value = "#".. cmd.Command .. " " .. cmd.Data .. '\x0D'
-
+	local value = "#".. cmd.Command .. " " .. cmd.Data
+	if DebugFunction then print("DoSend("..value..") Called") end
+	value = value .. '\x0D'
 	--Check for if a command is already queued
 	for i, val in ipairs(CommandQueue) do
 		if(val == value)then
@@ -528,25 +528,51 @@ function UpdateVideoChoices()
 	end
 end
 
+local function SetAudRouteFeedback(output, output_layer, input, input_layer) -- Audio.Layers = { 0=Analog, 1=Digital)
+	if DebugFunction then print("SetAudRouteFeedback(output: "..output.." layer: "..output_layer..",  index: "..input.." layer: "..input_layer..")") end
+	if output~=nil and input~=nil then
+		local in_ = tonumber(input)
+		local out_ = tonumber(output)
+		local in_layer_ = tonumber(input_layer)
+		local out_layer_ = tonumber(output_layer)
+		if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
+			for i=1, Properties['Input Count'].Value do
+				--can't have both an analog and digital input going to a single output so need to update feedback for both audio input layers
+				local ana_in_id_ = string.format("aud-ana-input_%d-%soutput_%d", i, out_layer_==AudioLayer.Analog and "ana-" or "", out_)
+				local dig_in_id_ = string.format("aud-input_%d-%soutput_%d"    , i, out_layer_==AudioLayer.Analog and "ana-" or "", out_)
+				if DebugFunction and in_==i then
+					print('ana_in_id_: '..ana_in_id_)
+					print('dig_in_id_: '..dig_in_id_)
+				end 
+				Controls[ana_in_id_].Boolean = (in_==i and in_layer_==AudioLayer.Analog) 
+				Controls[dig_in_id_].Boolean = (in_==i and in_layer_==AudioLayer.Digital) 
+			end
+		end
+	end
+end
 
 function SetRouteFeedback(layer, output, input)
 	if DebugFunction then print("SetRouteFeedback(layer: "..layer..", output: "..output..", index: "..input..")") end
 	--if DebugFunction then print('Handling Route: "'..msg["Data"]..'"') end
-	if output~=nil and input~=nil then
-		local in_ = tonumber(input)
-		local out_ = tonumber(output)
-		current_source[layer] = current_source[layer] or {}
-		current_source[layer][output] = input
-		if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
-			for i=1, Properties['Input Count'].Value do
-				if layer==Layers.Video then
-					Controls["vid-input_"..i.."-output_" ..output].Boolean = (in_==i) 
-				elseif layer==Layers.Audio then    
-					Controls["aud-input_"..i.."-output_" ..output].Boolean = (in_==i) 
-				end   
+	if layer==Layers.Audio then
+		SetAudRouteFeedback(output, AudioLayer.Digital, input, AudioLayer.Digital)
+	else
+		if output~=nil and input~=nil then
+			local in_ = tonumber(input)
+			local out_ = tonumber(output)
+			current_source[layer] = current_source[layer] or {}
+			current_source[layer][output] = input
+			if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
+				for i=1, Properties['Input Count'].Value do
+					if layer==Layers.Video then
+						Controls["vid-input_"..i.."-output_" ..output].Boolean = (in_==i) 
+					elseif layer==Layers.Audio then    
+						Controls["aud-input_"..i.."-output_" ..output].Boolean = (in_==i) 
+					end   
+				end
 			end
+			if layer==Layers.Video then SetVideoChoicesFeedback(output) end
 		end
-		if layer==Layers.Video then SetVideoChoicesFeedback(output) end
 	end
 end
 
@@ -875,7 +901,10 @@ function HandleResponse(msg)
 		Controls["AFV"].Boolean = (msg.Data=='1')
 		for o = 0, Properties['Output Count'].Value do
 			for i = 1, Properties['Input Count'].Value do
-				Controls["aud-input_" .. i .. "-output_" .. o].IsInvisible = (msg.Data=='1')
+				Controls["aud-input_"     .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
+				Controls["aud-ana-input_" .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
+				Controls["aud-input_"     .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
+				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
 			end
 		end
 
@@ -936,18 +965,16 @@ function HandleResponse(msg)
 		SetRouteFeedback(Layers.Audio, out_, in_)
 		
 	elseif msg.Command==Request["ExternalAudio"].Command then -- "EXT-AUD 0,2,0,3" -<output type>,<output>,<input type>,<input>
-		local OutType_ = vals_[1] -- ana=0, dig=1
-		local out_  	 = vals_[2]
-		local InType_  = vals_[3] -- ana=0, dig=1
-		local in_ 		 = vals_[4]
-		if OutType_=='1' and InType_=='1' then
-			SetRouteFeedback(Layers.Audio, out_, in_)
-			--TODO: handle audio routes
-		end
+		local dest_layer = vals_[1] -- ana=0, dig=1
+		local dest    	 = vals_[2]
+		local src_layer  = vals_[3] -- ana=0, dig=1
+		local src 		   = vals_[4]
+		SetAudRouteFeedback(dest, dest_layer, src, src_layer)
 	else
 			print("Response not handled")
 	end
 end
+
 -------------------------------------------------------------------------------
 -- Device routing functions
 -------------------------------------------------------------------------------
@@ -979,7 +1006,7 @@ local function SetRoute(layer, dest, src, state) -- "ROUTE 0,1,2"
 	if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
 end
 
-local function SetAudRoute(dest, src, state) -- "AUD 1>2"
+local function SetAudRoute(dest, dest_layer, src, src_layer, state)
 	if(state == 0) then
 		dest = "x"
 		if DebugFunction then print("Disconnecting audio src from all") end
@@ -987,8 +1014,14 @@ local function SetAudRoute(dest, src, state) -- "AUD 1>2"
 		if DebugFunction then print("Send audio src " .. src .. " to dest " .. dest) end
 	end
 	if dest == 0 then dest = '*' end
-	local cmd_ = Request["AudioRoute"]
-	cmd_.Data = src..'>'.. dest
+	local cmd_ = {}
+	if dest_layer==AudioLayer.Digital and src_layer==AudioLayer.Digital then
+		cmd_ = Request["AudioRoute"] -- "AUD 1>2"
+		cmd_.Data = src..'>'.. dest
+	else
+		cmd_ = Request["ExternalAudio"] -- "EXT-AUD 0,2,0,3" -<output type>,<output>,<input type>,<input>
+		cmd_.Data = dest_layer..','..dest..','..src_layer..','..src
+	end
 	Send(cmd_)
 	if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
 end
@@ -1135,10 +1168,25 @@ function Initialize()
 					if(o == 0) then ctl.Value = 0 end -- let the individual output buttons track state
 				end
 
-				Controls["aud-input_" .. i .. "-output_" .. o].EventHandler = function(ctl) 
-					if DebugFunction then print("vid-input_" .. i .. "-output_" .. o .. " pressed") end
+				Controls["aud-input_" .. i .. "-output_" .. o].EventHandler = function(ctl) -- digital-in to digital-out
+					if DebugFunction then print("aud-input_" .. i .. "-output_" .. o .. " pressed") end
 					--SetRoute(Layers.Audio, o, i, ctl.Value)
-					SetAudRoute(o, i, ctl.Value)
+					SetAudRoute(o, AudioLayer.Digital, i, AudioLayer.Digital, ctl.Value)
+				end
+
+				Controls["aud-ana-input_" .. i .. "-output_" .. o].EventHandler = function(ctl)  -- analog-in to digital-out
+					if DebugFunction then print("aud-ana-input_" .. i .. "-output_" .. o .. " pressed") end
+					SetAudRoute(o, AudioLayer.Digital, i, AudioLayer.Analog, ctl.Value)
+				end
+
+				Controls["aud-input_" .. i .. "-ana-output_" .. o].EventHandler = function(ctl)  -- digital-in to analog-out
+					if DebugFunction then print("aud-input_" .. i .. "-ana-output_" .. o .. " pressed") end
+					SetAudRoute(o, AudioLayer.Analog, i, AudioLayer.Digital, ctl.Value)
+				end
+
+				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].EventHandler = function(ctl)  -- analog-in to analog-out
+					if DebugFunction then print("aud-ana-input_" .. i .. "-ana-output_" .. o .. " pressed") end
+					SetAudRoute(o, AudioLayer.Analog, i, AudioLayer.Analog, ctl.Value)
 				end
 			end
 			
@@ -1230,7 +1278,7 @@ function Initialize()
 	end
 	Disconnected()
 	Connect()
-	GetDeviceInfo()
+	--GetDeviceInfo()
 	Heartbeat:Start(PollRate)
 end
 

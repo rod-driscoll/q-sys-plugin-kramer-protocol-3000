@@ -1,4 +1,3 @@
--- Information block for the plugin
 --[[ #include "info.lua" ]]
 
 -- Define the color of the plugin object in the design
@@ -8,7 +7,7 @@ end
 
 -- The name that will initially display when dragged into a design
 function GetPrettyName()
-	return "Kramer Protocol 3000 " .. PluginInfo.Version
+	return PluginInfo.Name:gsub("~", " ") .. " " .. PluginInfo.Version
 end
 
 -- Optional function used if plugin has multiple pages

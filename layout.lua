@@ -7,6 +7,8 @@ local colors = {
   Header      = {0,0,0},
   Button      = {48,32,40},
   Red         = {217,32,32},
+  Yellow      = {255,255,0},
+  Orange      = {255,127,0},
   DarkRed     = {80,16,16},
   Green       = {32,217,32},
   OKGreen     = {48,144,48},
@@ -115,13 +117,16 @@ elseif(CurrentPage == 'Matrix') then
     Padding     = { 4, 4 },
     GroupPadding= { 4, 4 },
     Button      = { Style = "Button", Size = { 36, 36}, Margin = 0 },
-    AudioButton = { Style = "Button", Size = { 16, 12}, Margin = 0, FontSize=9, Color=colors.Red },
+    AudioButton = { Style = "Button", Size = { 18, 12}, Margin = 0, FontSize=8, Color=colors.Red },
     NameText    = { Style = "Text", Type="Text", Color=colors.White, FontSize=10, HTextAlign="Center", WordWrap = true },
     NumButtons  = { props['Input Count'].Value, props['Output Count'].Value },
     Label       = { Style = "Label", Size = { 74, 14}, Type="Text", FontSize=10, HTextAlign="Center", WordWrap = true },
     Led         = { Style = "Led"  , Size = { 16, 16}, Margin=0, StrokeWidth=1, UnlinkOffColor=false },
     Outputs     = {}, -- to be filled in Init()
-    AudioOutputs= {}, -- to be filled in Init()
+    AudioDigToDigOutputs= {}, -- to be filled in Init()
+    AudioAnaToAnaOutputs= {}, -- to be filled in Init()
+    AudioAnaToDigOutputs= {}, -- to be filled in Init()
+    AudioDigToAnaOutputs= {}, -- to be filled in Init()
     --groupbox
     GroupBox    = { Type="GroupBox", Text="", StrokeWidth=1, CornerRadius=4, HTextAlign="Left" },
     
@@ -129,7 +134,7 @@ elseif(CurrentPage == 'Matrix') then
       if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
         self.Padding     = { 1, 1 }
         self.Button.Size = { 18, 18 }
-        self.AudioButton.Size = { 8, 6 }
+        self.AudioButton.Size = { 9, 6 }
         self.Led.Size = { 8, 8 }
         --self.Label.Size = { 37, 7 }
       end
@@ -141,28 +146,65 @@ elseif(CurrentPage == 'Matrix') then
       local z=0
       for i=1, self.NumButtons[1] do          
         for o=1, self.NumButtons[2] do
-          z=z+1
+          z=z+4
           local btn_ = helper.Copy(self.Button)
           btn_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o
           btn_['Legend'] = tostring(i)
           btn_['Position']={
             self.GroupBox.Position[1] + self.Padding[1] + (i-1)*(self.Button.Size[1] + self.Padding[1]), -- moving accross
             self.GroupBox.Position[2] + self.Padding[2] + (o-1)*(self.Button.Size[2] + self.Padding[2]) + self.Label.Size[2]+ self.Padding[2] } -- moving down
-          btn_['ZOrder'] = z + 0x1000
+          btn_['ZOrder'] = z
           btn_.Layout_ID = "vid-input_" ..i.. "-output_" .. o
           if self.Outputs[o]==nil then self.Outputs[o]={} end
           self.Outputs[o][i]=btn_
 
-          local aud_ = helper.Copy(self.AudioButton)
-          aud_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o .. " audio"
-          --btn_['Legend'] = 'A'
-          aud_['Position']={
-            btn_.Position[1] + btn_.Size[1] - aud_.Size[1],
-            btn_.Position[2] + btn_.Size[2] - aud_.Size[2] }
-          btn_['ZOrder'] = z
-          aud_.Layout_ID = "aud-input_" ..i.. "-output_" .. o
-          if self.AudioOutputs[o]==nil then self.AudioOutputs[o]={} end
-          self.AudioOutputs[o][i]=aud_
+          local aud_d2d_ = helper.Copy(self.AudioButton)
+          aud_d2d_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o .. " audio"
+          aud_d2d_['Legend'] = 'D'
+          aud_d2d_['Color'] = colors.Red
+          aud_d2d_['Position']={
+            btn_.Position[1] + btn_.Size[1] - self.AudioButton.Size[1],
+            btn_.Position[2] + btn_.Size[2] - self.AudioButton.Size[2] }
+          aud_d2d_['ZOrder'] = z + 0x1000
+          aud_d2d_.Layout_ID = "aud-input_" ..i.. "-output_" .. o
+          if self.AudioDigToDigOutputs[o]==nil then self.AudioDigToDigOutputs[o]={} end
+          self.AudioDigToDigOutputs[o][i]=aud_d2d_
+
+          local aud_d2a_ = helper.Copy(self.AudioButton)
+          aud_d2a_['PrettyName'] = "Crosspoints~Output "..o.."~In-digital" .. i .. " -> Out-analog" .. o .. " audio"
+          aud_d2a_['Legend'] = 'D>A'
+          aud_d2a_['Color'] = colors.Orange
+          aud_d2a_['Position']={
+            btn_.Position[1] + btn_.Size[1] - self.AudioButton.Size[1],
+            btn_.Position[2] }
+          aud_d2a_['ZOrder'] = z + 0x2000
+          aud_d2a_.Layout_ID = "aud-input_" ..i.. "-ana-output_" .. o
+          if self.AudioDigToAnaOutputs[o]==nil then self.AudioDigToAnaOutputs[o]={} end
+          self.AudioDigToAnaOutputs[o][i]=aud_d2a_
+
+          local aud_a2d_ = helper.Copy(self.AudioButton)
+          aud_a2d_['PrettyName'] = "Crosspoints~Output "..o.."~In-analog" .. i .. " -> Out-digital" .. o .. " audio"
+          aud_a2d_['Legend'] = 'A>D'
+          aud_a2d_['Color'] = colors.Orange
+          aud_a2d_['Position']={
+            btn_.Position[1],
+            btn_.Position[2] + btn_.Size[2] - self.AudioButton.Size[2] }
+          aud_a2d_['ZOrder'] = z + 0x3000
+          aud_a2d_.Layout_ID = "aud-ana-input_" ..i.. "-output_" .. o
+          if self.AudioAnaToDigOutputs[o]==nil then self.AudioAnaToDigOutputs[o]={} end
+          self.AudioAnaToDigOutputs[o][i]=aud_a2d_
+          
+          local aud_a2a_ = helper.Copy(self.AudioButton)
+          aud_a2a_['PrettyName'] = "Crosspoints~Output "..o.."~In-analog" .. i .. " -> Out-analog" .. o .. " audio"
+          aud_a2a_['Legend'] = 'A'
+          aud_a2a_['Color'] = colors.Yellow
+          aud_a2a_['Position']={
+            btn_.Position[1],
+            btn_.Position[2] }
+          aud_a2a_['ZOrder'] = z + 0x4000
+          aud_a2a_.Layout_ID = "aud-ana-input_" ..i.. "-ana-output_" .. o
+          if self.AudioAnaToAnaOutputs[o]==nil then self.AudioAnaToAnaOutputs[o]={} end
+          self.AudioAnaToAnaOutputs[o][i]=aud_a2a_
         end
       end
     end,
@@ -172,7 +214,16 @@ elseif(CurrentPage == 'Matrix') then
       for _,o in pairs(self.Outputs) do 
         for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
       end
-      for _,o in pairs(self.AudioOutputs) do 
+      for _,o in pairs(self.AudioDigToDigOutputs) do 
+        for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+      end
+      for _,o in pairs(self.AudioDigToAnaOutputs) do 
+        for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+      end
+      for _,o in pairs(self.AudioAnaToDigOutputs) do 
+        for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+      end
+      for _,o in pairs(self.AudioAnaToAnaOutputs) do 
         for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
       end
     end,
@@ -186,7 +237,25 @@ elseif(CurrentPage == 'Matrix') then
           i.Position[2] = i.Position[2] + distance[2]
         end
       end
-      for _,ao in pairs(self.AudioOutputs) do 
+      for _,ao in pairs(self.AudioDigToDigOutputs) do 
+        for _,ai in pairs(ao) do 
+          ai.Position[1] = ai.Position[1] + distance[1]
+          ai.Position[2] = ai.Position[2] + distance[2]
+        end
+      end
+      for _,ao in pairs(self.AudioDigToAnaOutputs) do 
+        for _,ai in pairs(ao) do 
+          ai.Position[1] = ai.Position[1] + distance[1]
+          ai.Position[2] = ai.Position[2] + distance[2]
+        end
+      end
+      for _,ao in pairs(self.AudioAnaToDigOutputs) do 
+        for _,ai in pairs(ao) do 
+          ai.Position[1] = ai.Position[1] + distance[1]
+          ai.Position[2] = ai.Position[2] + distance[2]
+        end
+      end
+      for _,ao in pairs(self.AudioAnaToAnaOutputs) do 
         for _,ai in pairs(ao) do 
           ai.Position[1] = ai.Position[1] + distance[1]
           ai.Position[2] = ai.Position[2] + distance[2]
@@ -532,29 +601,27 @@ elseif(CurrentPage == 'Matrix') then
         end
         newPos_[1] = newPos_[1] + amute_.Size[1] + self.Padding[1]
                
-        if props['Model'].Value=='Other' then
-          -- Gain knob
-          local gain_ = helper.Copy(self.Button)
-          gain_['PrettyName'] = "Outputs~".. o .."~level"
-          gain_['Style'] = "Knob"
-          gain_['Position'] = helper.Copy(newPos_)
-          gain_.Layout_ID = "output_" .. o .. "-level"
-          table.insert(self.Buttons, gain_)
+        -- Gain knob
+        local gain_ = helper.Copy(self.Button)
+        gain_['PrettyName'] = "Outputs~".. o .."~level"
+        gain_['Style'] = "Knob"
+        gain_['Position'] = helper.Copy(newPos_)
+        gain_.Layout_ID = "output_" .. o .. "-level"
+        table.insert(self.Buttons, gain_)
 
-          -- top row gain knob label (text only) above crosspoints GroupBox
-          if o==1 then
-            local lbl_gain_ = helper.Copy(self.Label)
-            lbl_gain_.Size[1] = self.Button.Size[1]
-            lbl_gain_["Text"] = "Gain"            
-            lbl_gain_['Position']={
-              newPos_[1], -- horiz moves accross
-              self.Position[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] } -- vert always the same
-            table.insert(self.Labels, lbl_gain_)
-            self.GroupBox.Size[1] = self.GroupBox.Size[1] + gain_.Size[1] + self.Padding[1]
-          end
-          newPos_[1] = newPos_[1] + gain_.Size[1] + self.Padding[1]
+        -- top row gain knob label (text only) above crosspoints GroupBox
+        if o==1 then
+          local lbl_gain_ = helper.Copy(self.Label)
+          lbl_gain_.Size[1] = self.Button.Size[1]
+          lbl_gain_["Text"] = "Gain"            
+          lbl_gain_['Position']={
+            newPos_[1], -- horiz moves accross
+            self.Position[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] } -- vert always the same
+          table.insert(self.Labels, lbl_gain_)
+          self.GroupBox.Size[1] = self.GroupBox.Size[1] + gain_.Size[1] + self.Padding[1]
         end
-        
+        newPos_[1] = newPos_[1] + gain_.Size[1] + self.Padding[1]
+      
         -- source select ComboBox
         local selector_ = helper.Copy(self.Selector)
         selector_['PrettyName'] = "Outputs~".. o .."~source"

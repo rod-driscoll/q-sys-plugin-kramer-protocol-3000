@@ -9,14 +9,14 @@ table.insert(props,{
   Type = 'integer',
   Min = 2,
   Max = 127,
-  Value = 6
+  Value = 4
 })
 table.insert(props,{
   Name = 'Output Count',
-  Type = 'integer',
+  Type = 'integer', 
   Min = 1,
   Max = 127,
-  Value = 2
+  Value = 4
 })
 table.insert(props,{
   Name    = "Connection Type",

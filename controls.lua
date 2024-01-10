@@ -142,6 +142,27 @@ for i = 0, props['Output Count'].Value do
       PinStyle = "Both",
       UserPin = true
     })
+    table.insert(ctrls, {
+      Name = "aud-input_" .. s .. "-ana-output_" .. i,
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      PinStyle = "Both",
+      UserPin = true
+    })
+    table.insert(ctrls, {
+      Name = "aud-ana-input_" .. s .. "-output_" .. i,
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      PinStyle = "Both",
+      UserPin = true
+    })
+    table.insert(ctrls, {
+      Name = "aud-ana-input_" .. s .. "-ana-output_" .. i,
+      ControlType = "Button",
+      ButtonType = "Toggle",
+      PinStyle = "Both",
+      UserPin = true
+    })
   end
 end
 

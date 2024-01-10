@@ -3,7 +3,7 @@
 <package >
   <metadata>
     <id>Kramer-protocol-3000</id>
-    <version>1.0.0</version>
+    <version>1.0.0.0</version>
     <title>Kramer Protocol 3000</title>
     <authors>Rod Driscoll</authors>
     <owners>Rod Driscoll</owners>

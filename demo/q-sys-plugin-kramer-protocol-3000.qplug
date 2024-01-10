@@ -1,12 +1,12 @@
--- Information block for the plugin
 -- Q-Sys plugin for Kramer Protocol 3000
 -- <https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000>
--- 20231106 v1.0.0 Rod Driscoll<rod@theavitgroup.com.au>
+-- 20240110 v1.1.0.4 Rod Driscoll<rod@theavitgroup.com.au>
 
 PluginInfo = {
   Name = "Kramer~Protocol 3000", -- The tilde here indicates folder structure in the Shematic Elements pane
-  Version = "1.0.0",
-  Id = "kramer-protocol-3000.plugin.1.0.0",
+  Version = "1.1.0.4",
+  BuildVersion = "1.1.0.4",
+  Id = "kramer-protocol-3000.plugin.1.0.0", -- this must be unique per plugin, but don't add version number because the compiler will update it.
   Description = "Plugin implementing Kramer Protocol 3000",
   ShowDebug = true,
   Author = "Rod Driscoll"
@@ -19,7 +19,7 @@ end
 
 -- The name that will initially display when dragged into a design
 function GetPrettyName()
-	return "Kramer Protocol 3000 " .. PluginInfo.Version
+	return PluginInfo.Name:gsub("~", " ") .. " " .. PluginInfo.Version
 end
 
 -- Optional function used if plugin has multiple pages
@@ -46,14 +46,14 @@ function GetProperties()
     Type = 'integer',
     Min = 2,
     Max = 127,
-    Value = 6
+    Value = 4
   })
   table.insert(props,{
     Name = 'Output Count',
-    Type = 'integer',
+    Type = 'integer', 
     Min = 1,
     Max = 127,
-    Value = 2
+    Value = 4
   })
   table.insert(props,{
     Name    = "Connection Type",
@@ -246,6 +246,27 @@ function GetControls(props)
         PinStyle = "Both",
         UserPin = true
       })
+      table.insert(ctrls, {
+        Name = "aud-input_" .. s .. "-ana-output_" .. i,
+        ControlType = "Button",
+        ButtonType = "Toggle",
+        PinStyle = "Both",
+        UserPin = true
+      })
+      table.insert(ctrls, {
+        Name = "aud-ana-input_" .. s .. "-output_" .. i,
+        ControlType = "Button",
+        ButtonType = "Toggle",
+        PinStyle = "Both",
+        UserPin = true
+      })
+      table.insert(ctrls, {
+        Name = "aud-ana-input_" .. s .. "-ana-output_" .. i,
+        ControlType = "Button",
+        ButtonType = "Toggle",
+        PinStyle = "Both",
+        UserPin = true
+      })
     end
   end
   
@@ -411,6 +432,8 @@ function GetControlLayout(props)
     Header      = {0,0,0},
     Button      = {48,32,40},
     Red         = {217,32,32},
+    Yellow      = {255,255,0},
+    Orange      = {255,127,0},
     DarkRed     = {80,16,16},
     Green       = {32,217,32},
     OKGreen     = {48,144,48},
@@ -519,13 +542,16 @@ function GetControlLayout(props)
       Padding     = { 4, 4 },
       GroupPadding= { 4, 4 },
       Button      = { Style = "Button", Size = { 36, 36}, Margin = 0 },
-      AudioButton = { Style = "Button", Size = { 16, 12}, Margin = 0, FontSize=9, Color=colors.Red },
+      AudioButton = { Style = "Button", Size = { 18, 12}, Margin = 0, FontSize=8, Color=colors.Red },
       NameText    = { Style = "Text", Type="Text", Color=colors.White, FontSize=10, HTextAlign="Center", WordWrap = true },
       NumButtons  = { props['Input Count'].Value, props['Output Count'].Value },
       Label       = { Style = "Label", Size = { 74, 14}, Type="Text", FontSize=10, HTextAlign="Center", WordWrap = true },
       Led         = { Style = "Led"  , Size = { 16, 16}, Margin=0, StrokeWidth=1, UnlinkOffColor=false },
       Outputs     = {}, -- to be filled in Init()
-      AudioOutputs= {}, -- to be filled in Init()
+      AudioDigToDigOutputs= {}, -- to be filled in Init()
+      AudioAnaToAnaOutputs= {}, -- to be filled in Init()
+      AudioAnaToDigOutputs= {}, -- to be filled in Init()
+      AudioDigToAnaOutputs= {}, -- to be filled in Init()
       --groupbox
       GroupBox    = { Type="GroupBox", Text="", StrokeWidth=1, CornerRadius=4, HTextAlign="Left" },
       
@@ -533,7 +559,7 @@ function GetControlLayout(props)
         if props['Input Count'].Value > large_matrix_size_[1] or props['Output Count'].Value > large_matrix_size_[2] then 
           self.Padding     = { 1, 1 }
           self.Button.Size = { 18, 18 }
-          self.AudioButton.Size = { 8, 6 }
+          self.AudioButton.Size = { 9, 6 }
           self.Led.Size = { 8, 8 }
           --self.Label.Size = { 37, 7 }
         end
@@ -545,28 +571,65 @@ function GetControlLayout(props)
         local z=0
         for i=1, self.NumButtons[1] do          
           for o=1, self.NumButtons[2] do
-            z=z+1
+            z=z+4
             local btn_ = helper.Copy(self.Button)
             btn_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o
             btn_['Legend'] = tostring(i)
             btn_['Position']={
               self.GroupBox.Position[1] + self.Padding[1] + (i-1)*(self.Button.Size[1] + self.Padding[1]), -- moving accross
               self.GroupBox.Position[2] + self.Padding[2] + (o-1)*(self.Button.Size[2] + self.Padding[2]) + self.Label.Size[2]+ self.Padding[2] } -- moving down
-            btn_['ZOrder'] = z + 0x1000
+            btn_['ZOrder'] = z
             btn_.Layout_ID = "vid-input_" ..i.. "-output_" .. o
             if self.Outputs[o]==nil then self.Outputs[o]={} end
             self.Outputs[o][i]=btn_
   
-            local aud_ = helper.Copy(self.AudioButton)
-            aud_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o .. " audio"
-            --btn_['Legend'] = 'A'
-            aud_['Position']={
-              btn_.Position[1] + btn_.Size[1] - aud_.Size[1],
-              btn_.Position[2] + btn_.Size[2] - aud_.Size[2] }
-            btn_['ZOrder'] = z
-            aud_.Layout_ID = "aud-input_" ..i.. "-output_" .. o
-            if self.AudioOutputs[o]==nil then self.AudioOutputs[o]={} end
-            self.AudioOutputs[o][i]=aud_
+            local aud_d2d_ = helper.Copy(self.AudioButton)
+            aud_d2d_['PrettyName'] = "Crosspoints~Output "..o.."~In" .. i .. " -> Out" .. o .. " audio"
+            aud_d2d_['Legend'] = 'D'
+            aud_d2d_['Color'] = colors.Red
+            aud_d2d_['Position']={
+              btn_.Position[1] + btn_.Size[1] - self.AudioButton.Size[1],
+              btn_.Position[2] + btn_.Size[2] - self.AudioButton.Size[2] }
+            aud_d2d_['ZOrder'] = z + 0x1000
+            aud_d2d_.Layout_ID = "aud-input_" ..i.. "-output_" .. o
+            if self.AudioDigToDigOutputs[o]==nil then self.AudioDigToDigOutputs[o]={} end
+            self.AudioDigToDigOutputs[o][i]=aud_d2d_
+  
+            local aud_d2a_ = helper.Copy(self.AudioButton)
+            aud_d2a_['PrettyName'] = "Crosspoints~Output "..o.."~In-digital" .. i .. " -> Out-analog" .. o .. " audio"
+            aud_d2a_['Legend'] = 'D>A'
+            aud_d2a_['Color'] = colors.Orange
+            aud_d2a_['Position']={
+              btn_.Position[1] + btn_.Size[1] - self.AudioButton.Size[1],
+              btn_.Position[2] }
+            aud_d2a_['ZOrder'] = z + 0x2000
+            aud_d2a_.Layout_ID = "aud-input_" ..i.. "-ana-output_" .. o
+            if self.AudioDigToAnaOutputs[o]==nil then self.AudioDigToAnaOutputs[o]={} end
+            self.AudioDigToAnaOutputs[o][i]=aud_d2a_
+  
+            local aud_a2d_ = helper.Copy(self.AudioButton)
+            aud_a2d_['PrettyName'] = "Crosspoints~Output "..o.."~In-analog" .. i .. " -> Out-digital" .. o .. " audio"
+            aud_a2d_['Legend'] = 'A>D'
+            aud_a2d_['Color'] = colors.Orange
+            aud_a2d_['Position']={
+              btn_.Position[1],
+              btn_.Position[2] + btn_.Size[2] - self.AudioButton.Size[2] }
+            aud_a2d_['ZOrder'] = z + 0x3000
+            aud_a2d_.Layout_ID = "aud-ana-input_" ..i.. "-output_" .. o
+            if self.AudioAnaToDigOutputs[o]==nil then self.AudioAnaToDigOutputs[o]={} end
+            self.AudioAnaToDigOutputs[o][i]=aud_a2d_
+            
+            local aud_a2a_ = helper.Copy(self.AudioButton)
+            aud_a2a_['PrettyName'] = "Crosspoints~Output "..o.."~In-analog" .. i .. " -> Out-analog" .. o .. " audio"
+            aud_a2a_['Legend'] = 'A'
+            aud_a2a_['Color'] = colors.Yellow
+            aud_a2a_['Position']={
+              btn_.Position[1],
+              btn_.Position[2] }
+            aud_a2a_['ZOrder'] = z + 0x4000
+            aud_a2a_.Layout_ID = "aud-ana-input_" ..i.. "-ana-output_" .. o
+            if self.AudioAnaToAnaOutputs[o]==nil then self.AudioAnaToAnaOutputs[o]={} end
+            self.AudioAnaToAnaOutputs[o][i]=aud_a2a_
           end
         end
       end,
@@ -576,7 +639,16 @@ function GetControlLayout(props)
         for _,o in pairs(self.Outputs) do 
           for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
         end
-        for _,o in pairs(self.AudioOutputs) do 
+        for _,o in pairs(self.AudioDigToDigOutputs) do 
+          for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+        end
+        for _,o in pairs(self.AudioDigToAnaOutputs) do 
+          for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+        end
+        for _,o in pairs(self.AudioAnaToDigOutputs) do 
+          for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
+        end
+        for _,o in pairs(self.AudioAnaToAnaOutputs) do 
           for _,i in pairs(o) do layout[i.Layout_ID] = i end -- layout is the global layout
         end
       end,
@@ -590,7 +662,25 @@ function GetControlLayout(props)
             i.Position[2] = i.Position[2] + distance[2]
           end
         end
-        for _,ao in pairs(self.AudioOutputs) do 
+        for _,ao in pairs(self.AudioDigToDigOutputs) do 
+          for _,ai in pairs(ao) do 
+            ai.Position[1] = ai.Position[1] + distance[1]
+            ai.Position[2] = ai.Position[2] + distance[2]
+          end
+        end
+        for _,ao in pairs(self.AudioDigToAnaOutputs) do 
+          for _,ai in pairs(ao) do 
+            ai.Position[1] = ai.Position[1] + distance[1]
+            ai.Position[2] = ai.Position[2] + distance[2]
+          end
+        end
+        for _,ao in pairs(self.AudioAnaToDigOutputs) do 
+          for _,ai in pairs(ao) do 
+            ai.Position[1] = ai.Position[1] + distance[1]
+            ai.Position[2] = ai.Position[2] + distance[2]
+          end
+        end
+        for _,ao in pairs(self.AudioAnaToAnaOutputs) do 
           for _,ai in pairs(ao) do 
             ai.Position[1] = ai.Position[1] + distance[1]
             ai.Position[2] = ai.Position[2] + distance[2]
@@ -936,29 +1026,27 @@ function GetControlLayout(props)
           end
           newPos_[1] = newPos_[1] + amute_.Size[1] + self.Padding[1]
                  
-          if props['Model'].Value=='Other' then
-            -- Gain knob
-            local gain_ = helper.Copy(self.Button)
-            gain_['PrettyName'] = "Outputs~".. o .."~level"
-            gain_['Style'] = "Knob"
-            gain_['Position'] = helper.Copy(newPos_)
-            gain_.Layout_ID = "output_" .. o .. "-level"
-            table.insert(self.Buttons, gain_)
+          -- Gain knob
+          local gain_ = helper.Copy(self.Button)
+          gain_['PrettyName'] = "Outputs~".. o .."~level"
+          gain_['Style'] = "Knob"
+          gain_['Position'] = helper.Copy(newPos_)
+          gain_.Layout_ID = "output_" .. o .. "-level"
+          table.insert(self.Buttons, gain_)
   
-            -- top row gain knob label (text only) above crosspoints GroupBox
-            if o==1 then
-              local lbl_gain_ = helper.Copy(self.Label)
-              lbl_gain_.Size[1] = self.Button.Size[1]
-              lbl_gain_["Text"] = "Gain"            
-              lbl_gain_['Position']={
-                newPos_[1], -- horiz moves accross
-                self.Position[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] } -- vert always the same
-              table.insert(self.Labels, lbl_gain_)
-              self.GroupBox.Size[1] = self.GroupBox.Size[1] + gain_.Size[1] + self.Padding[1]
-            end
-            newPos_[1] = newPos_[1] + gain_.Size[1] + self.Padding[1]
+          -- top row gain knob label (text only) above crosspoints GroupBox
+          if o==1 then
+            local lbl_gain_ = helper.Copy(self.Label)
+            lbl_gain_.Size[1] = self.Button.Size[1]
+            lbl_gain_["Text"] = "Gain"            
+            lbl_gain_['Position']={
+              newPos_[1], -- horiz moves accross
+              self.Position[2] + UI_crosspoints.Label.Size[2] + self.Padding[2] } -- vert always the same
+            table.insert(self.Labels, lbl_gain_)
+            self.GroupBox.Size[1] = self.GroupBox.Size[1] + gain_.Size[1] + self.Padding[1]
           end
-          
+          newPos_[1] = newPos_[1] + gain_.Size[1] + self.Padding[1]
+        
           -- source select ComboBox
           local selector_ = helper.Copy(self.Selector)
           selector_['PrettyName'] = "Outputs~".. o .."~source"
@@ -1045,6 +1133,7 @@ if Controls then
   CommandProcessing = false
   --Internal command timeout
   CommandTimeout = 5
+  if System.IsEmulating then CommandTimeout = 120 end
   CommunicationTimer = Timer.New()
   TimeoutCount = 0
   
@@ -1229,10 +1318,9 @@ if Controls then
   -- Take a request object and queue it for sending.  Object format is of:
   --  { Command=string, Data={string} }
   function Send(cmd, sendImmediately)
-  	if DebugFunction then print("DoSend() Called") end
-  	--local value = "#".. cmd.Command .. " " .. cmd.Data .. 0x0d
-  	local value = "#".. cmd.Command .. " " .. cmd.Data .. '\x0D'
-  
+  	local value = "#".. cmd.Command .. " " .. cmd.Data
+  	if DebugFunction then print("DoSend("..value..") Called") end
+  	value = value .. '\x0D'
   	--Check for if a command is already queued
   	for i, val in ipairs(CommandQueue) do
   		if(val == value)then
@@ -1550,25 +1638,51 @@ if Controls then
   	end
   end
   
+  local function SetAudRouteFeedback(output, output_layer, input, input_layer) -- Audio.Layers = { 0=Analog, 1=Digital)
+  	if DebugFunction then print("SetAudRouteFeedback(output: "..output.." layer: "..output_layer..",  index: "..input.." layer: "..input_layer..")") end
+  	if output~=nil and input~=nil then
+  		local in_ = tonumber(input)
+  		local out_ = tonumber(output)
+  		local in_layer_ = tonumber(input_layer)
+  		local out_layer_ = tonumber(output_layer)
+  		if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
+  			for i=1, Properties['Input Count'].Value do
+  				--can't have both an analog and digital input going to a single output so need to update feedback for both audio input layers
+  				local ana_in_id_ = string.format("aud-ana-input_%d-%soutput_%d", i, out_layer_==AudioLayer.Analog and "ana-" or "", out_)
+  				local dig_in_id_ = string.format("aud-input_%d-%soutput_%d"    , i, out_layer_==AudioLayer.Analog and "ana-" or "", out_)
+  				if DebugFunction and in_==i then
+  					print('ana_in_id_: '..ana_in_id_)
+  					print('dig_in_id_: '..dig_in_id_)
+  				end 
+  				Controls[ana_in_id_].Boolean = (in_==i and in_layer_==AudioLayer.Analog) 
+  				Controls[dig_in_id_].Boolean = (in_==i and in_layer_==AudioLayer.Digital) 
+  			end
+  		end
+  	end
+  end
   
   function SetRouteFeedback(layer, output, input)
   	if DebugFunction then print("SetRouteFeedback(layer: "..layer..", output: "..output..", index: "..input..")") end
   	--if DebugFunction then print('Handling Route: "'..msg["Data"]..'"') end
-  	if output~=nil and input~=nil then
-  		local in_ = tonumber(input)
-  		local out_ = tonumber(output)
-  		current_source[layer] = current_source[layer] or {}
-  		current_source[layer][output] = input
-  		if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
-  			for i=1, Properties['Input Count'].Value do
-  				if layer==Layers.Video then
-  					Controls["vid-input_"..i.."-output_" ..output].Boolean = (in_==i) 
-  				elseif layer==Layers.Audio then    
-  					Controls["aud-input_"..i.."-output_" ..output].Boolean = (in_==i) 
-  				end   
+  	if layer==Layers.Audio then
+  		SetAudRouteFeedback(output, AudioLayer.Digital, input, AudioLayer.Digital)
+  	else
+  		if output~=nil and input~=nil then
+  			local in_ = tonumber(input)
+  			local out_ = tonumber(output)
+  			current_source[layer] = current_source[layer] or {}
+  			current_source[layer][output] = input
+  			if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
+  				for i=1, Properties['Input Count'].Value do
+  					if layer==Layers.Video then
+  						Controls["vid-input_"..i.."-output_" ..output].Boolean = (in_==i) 
+  					elseif layer==Layers.Audio then    
+  						Controls["aud-input_"..i.."-output_" ..output].Boolean = (in_==i) 
+  					end   
+  				end
   			end
+  			if layer==Layers.Video then SetVideoChoicesFeedback(output) end
   		end
-  		if layer==Layers.Video then SetVideoChoicesFeedback(output) end
   	end
   end
   
@@ -1897,7 +2011,10 @@ if Controls then
   		Controls["AFV"].Boolean = (msg.Data=='1')
   		for o = 0, Properties['Output Count'].Value do
   			for i = 1, Properties['Input Count'].Value do
-  				Controls["aud-input_" .. i .. "-output_" .. o].IsInvisible = (msg.Data=='1')
+  				Controls["aud-input_"     .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
+  				Controls["aud-ana-input_" .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
+  				Controls["aud-input_"     .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
+  				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
   			end
   		end
   
@@ -1958,18 +2075,16 @@ if Controls then
   		SetRouteFeedback(Layers.Audio, out_, in_)
   		
   	elseif msg.Command==Request["ExternalAudio"].Command then -- "EXT-AUD 0,2,0,3" -<output type>,<output>,<input type>,<input>
-  		local OutType_ = vals_[1] -- ana=0, dig=1
-  		local out_  	 = vals_[2]
-  		local InType_  = vals_[3] -- ana=0, dig=1
-  		local in_ 		 = vals_[4]
-  		if OutType_=='1' and InType_=='1' then
-  			SetRouteFeedback(Layers.Audio, out_, in_)
-  			--TODO: handle audio routes
-  		end
+  		local dest_layer = vals_[1] -- ana=0, dig=1
+  		local dest    	 = vals_[2]
+  		local src_layer  = vals_[3] -- ana=0, dig=1
+  		local src 		   = vals_[4]
+  		SetAudRouteFeedback(dest, dest_layer, src, src_layer)
   	else
   			print("Response not handled")
   	end
   end
+  
   -------------------------------------------------------------------------------
   -- Device routing functions
   -------------------------------------------------------------------------------
@@ -2001,7 +2116,7 @@ if Controls then
   	if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
   end
   
-  local function SetAudRoute(dest, src, state) -- "AUD 1>2"
+  local function SetAudRoute(dest, dest_layer, src, src_layer, state)
   	if(state == 0) then
   		dest = "x"
   		if DebugFunction then print("Disconnecting audio src from all") end
@@ -2009,8 +2124,14 @@ if Controls then
   		if DebugFunction then print("Send audio src " .. src .. " to dest " .. dest) end
   	end
   	if dest == 0 then dest = '*' end
-  	local cmd_ = Request["AudioRoute"]
-  	cmd_.Data = src..'>'.. dest
+  	local cmd_ = {}
+  	if dest_layer==AudioLayer.Digital and src_layer==AudioLayer.Digital then
+  		cmd_ = Request["AudioRoute"] -- "AUD 1>2"
+  		cmd_.Data = src..'>'.. dest
+  	else
+  		cmd_ = Request["ExternalAudio"] -- "EXT-AUD 0,2,0,3" -<output type>,<output>,<input type>,<input>
+  		cmd_.Data = dest_layer..','..dest..','..src_layer..','..src
+  	end
   	Send(cmd_)
   	if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
   end
@@ -2157,10 +2278,25 @@ if Controls then
   					if(o == 0) then ctl.Value = 0 end -- let the individual output buttons track state
   				end
   
-  				Controls["aud-input_" .. i .. "-output_" .. o].EventHandler = function(ctl) 
-  					if DebugFunction then print("vid-input_" .. i .. "-output_" .. o .. " pressed") end
+  				Controls["aud-input_" .. i .. "-output_" .. o].EventHandler = function(ctl) -- digital-in to digital-out
+  					if DebugFunction then print("aud-input_" .. i .. "-output_" .. o .. " pressed") end
   					--SetRoute(Layers.Audio, o, i, ctl.Value)
-  					SetAudRoute(o, i, ctl.Value)
+  					SetAudRoute(o, AudioLayer.Digital, i, AudioLayer.Digital, ctl.Value)
+  				end
+  
+  				Controls["aud-ana-input_" .. i .. "-output_" .. o].EventHandler = function(ctl)  -- analog-in to digital-out
+  					if DebugFunction then print("aud-ana-input_" .. i .. "-output_" .. o .. " pressed") end
+  					SetAudRoute(o, AudioLayer.Digital, i, AudioLayer.Analog, ctl.Value)
+  				end
+  
+  				Controls["aud-input_" .. i .. "-ana-output_" .. o].EventHandler = function(ctl)  -- digital-in to analog-out
+  					if DebugFunction then print("aud-input_" .. i .. "-ana-output_" .. o .. " pressed") end
+  					SetAudRoute(o, AudioLayer.Analog, i, AudioLayer.Digital, ctl.Value)
+  				end
+  
+  				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].EventHandler = function(ctl)  -- analog-in to analog-out
+  					if DebugFunction then print("aud-ana-input_" .. i .. "-ana-output_" .. o .. " pressed") end
+  					SetAudRoute(o, AudioLayer.Analog, i, AudioLayer.Analog, ctl.Value)
   				end
   			end
   			
@@ -2252,7 +2388,7 @@ if Controls then
   	end
   	Disconnected()
   	Connect()
-  	GetDeviceInfo()
+  	--GetDeviceInfo()
   	Heartbeat:Start(PollRate)
   end
   

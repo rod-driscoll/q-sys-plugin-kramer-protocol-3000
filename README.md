@@ -46,26 +46,37 @@ Do not edit the *.qplug file directly, this is created using the compiler.
 The files in "//testing/" are for dev only and may not be the most current code, they were created from the main *.qplug file following these instructions for run-time debugging:\
 [Debugging Run-time Code](https://q-syshelp.qsc.com/DeveloperHelp/#Getting_Started/Building_a_Plugin.htm?TocPath=Getting%2520Started%257C_____3)
 
+### Protocol notes
+
+The only way to accurately develop code for Kramer protocol 3000 is with live systems.\
+Kramer protocol 3000 is a very loose protocol, Every Kramer device has it's own protocol manual that claims it uses Protocol 300 but the actual devices do not comply with the documented protocols.
+
 ## Features
 
 ### Features tested and functional
 
-* Video matrix switching
-* Output audio mute (Protocol doesn't support input audio mute)
-* Output video disable (audio blank not supported)
-* Displaying device information (MAC, SN, FW, Hostname)
+* Video matrix switching and feedback via crosspoint buttons and combo box selectors
+* Output audio mute and feedback (Protocol doesn't support input audio mute)
+* Output video disable and feedback (audio blank not supported)
+* Output volume and feedback (note: not log scaled)
+* Audio follow video
+* Analog and Digital audio matrix switching including input and output embed and de-embed.
+* Displaying device information (SN, Version)
+* Custom string insertion
   
 ### Features not tested
 
-* Input and output gain (not supported on VS-88 dev system)
-* Audio follow video, the protocol manuals have several different audio and video commands with some flagged as legacy, all with insufficient explanation.
+* Displaying device information (MAC, device name, model name)
+* Input gain (not supported on VS-88 dev system)
 * Serial control
 
 ### Features not implemented
 
 * Authentication (protocol does not require authentication)
 * HDCP enable and status
-* Audio embed
+* Presets
+* ARC
+* EDID management
 
 ## References
 

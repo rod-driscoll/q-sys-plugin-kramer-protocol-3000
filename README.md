@@ -60,7 +60,7 @@ Kramer protocol 3000 is a very loose protocol, Every Kramer device has it's own 
 * Output video disable and feedback (audio blank not supported)
 * Output volume and feedback (note: not log scaled)
 * Audio follow video
-* Analog and Digital audio matrix switching including input and output embed and de-embed.
+* Analog and Digital audio matrix switching including input and output embed and de-embed (buttons only visible when AFV is turned off).
 * Displaying device information (SN, Version)
 * Custom string insertion
   

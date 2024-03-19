@@ -1,11 +1,13 @@
 -- Q-Sys plugin for Kramer Protocol 3000
 -- <https://github.com/rod-driscoll/q-sys-plugin-kramer-protocol-3000>
 -- 20240110 v1.1.0.4 Rod Driscoll<rod@theavitgroup.com.au>
+-- 20240319 v1.1.0.5 Rod Driscoll<rod@theavitgroup.com.au>
+  -- inverted AFV command byte
 
 PluginInfo = {
   Name = "Kramer~Protocol 3000", -- The tilde here indicates folder structure in the Shematic Elements pane
-  Version = "1.1.0.4",
-  BuildVersion = "1.1.0.4",
+  Version = "1.1.0.5",
+  BuildVersion = "1.1.0.5",
   Id = "kramer-protocol-3000.plugin.1.0.0", -- this must be unique per plugin, but don't add version number because the compiler will update it.
   Description = "Plugin implementing Kramer Protocol 3000",
   ShowDebug = true,
@@ -2008,13 +2010,13 @@ if Controls then
   
   	elseif msg.Command==Request["AudioFollowVideo"].Command then
   		if DebugFunction then print("AudioFollowVideo: "..msg["Data"]) end
-  		Controls["AFV"].Boolean = (msg.Data=='1')
+  		Controls["AFV"].Boolean = (msg.Data=='0')
   		for o = 0, Properties['Output Count'].Value do
   			for i = 1, Properties['Input Count'].Value do
-  				Controls["aud-input_"     .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
-  				Controls["aud-ana-input_" .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
-  				Controls["aud-input_"     .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
-  				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
+  				Controls["aud-input_"     .. i .. "-output_"     .. o].IsInvisible = Controls["AFV"].Boolean
+  				Controls["aud-ana-input_" .. i .. "-output_"     .. o].IsInvisible = Controls["AFV"].Boolean
+  				Controls["aud-input_"     .. i .. "-ana-output_" .. o].IsInvisible = Controls["AFV"].Boolean
+  				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].IsInvisible = Controls["AFV"].Boolean
   			end
   		end
   
@@ -2139,7 +2141,7 @@ if Controls then
   local function SetAudioFollowVideo(state)
   	if DebugFunction then print("Send Audio follow video: "..tostring(state)) end
   	local cmd_ = Request["AudioFollowVideo"]
-  	cmd_.Data = state and "1" or "0"
+  	cmd_.Data = state and "0" or "1"
   	Send(cmd_)
   	if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
   end
@@ -2227,7 +2229,7 @@ if Controls then
   	ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
   
   	cmd_ = Request["AudioFollowVideo"]
-  	cmd_.Data = '1'
+  	cmd_.Data = '0'
   	ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
   --[[
   	cmd_ = Request["Label"]

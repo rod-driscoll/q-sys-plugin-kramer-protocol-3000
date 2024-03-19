@@ -898,13 +898,13 @@ function HandleResponse(msg)
 
 	elseif msg.Command==Request["AudioFollowVideo"].Command then
 		if DebugFunction then print("AudioFollowVideo: "..msg["Data"]) end
-		Controls["AFV"].Boolean = (msg.Data=='1')
+		Controls["AFV"].Boolean = (msg.Data=='0')
 		for o = 0, Properties['Output Count'].Value do
 			for i = 1, Properties['Input Count'].Value do
-				Controls["aud-input_"     .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
-				Controls["aud-ana-input_" .. i .. "-output_"     .. o].IsInvisible = (msg.Data=='1')
-				Controls["aud-input_"     .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
-				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].IsInvisible = (msg.Data=='1')
+				Controls["aud-input_"     .. i .. "-output_"     .. o].IsInvisible = Controls["AFV"].Boolean
+				Controls["aud-ana-input_" .. i .. "-output_"     .. o].IsInvisible = Controls["AFV"].Boolean
+				Controls["aud-input_"     .. i .. "-ana-output_" .. o].IsInvisible = Controls["AFV"].Boolean
+				Controls["aud-ana-input_" .. i .. "-ana-output_" .. o].IsInvisible = Controls["AFV"].Boolean
 			end
 		end
 
@@ -1029,7 +1029,7 @@ end
 local function SetAudioFollowVideo(state)
 	if DebugFunction then print("Send Audio follow video: "..tostring(state)) end
 	local cmd_ = Request["AudioFollowVideo"]
-	cmd_.Data = state and "1" or "0"
+	cmd_.Data = state and "0" or "1"
 	Send(cmd_)
 	if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
 end
@@ -1117,7 +1117,7 @@ function TestFeedbacks()
 	ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
 
 	cmd_ = Request["AudioFollowVideo"]
-	cmd_.Data = '1'
+	cmd_.Data = '0'
 	ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data))
 --[[
 	cmd_ = Request["Label"]

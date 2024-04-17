@@ -21,8 +21,8 @@ table.insert(props,{
 table.insert(props,{
   Name    = "Connection Type",
   Type    = "enum", 
-  Choices = {"Ethernet", "Serial"},
-  Value   = "Ethernet"
+  Choices = {"TCP", "UDP", "Serial"},
+  Value   = "TCP"
 })
 table.insert(props,{
   Name  = "Poll Interval",

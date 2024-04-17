@@ -46,21 +46,25 @@ layout["code"]={PrettyName="code",Style="None"}
 if(CurrentPage == 'Setup') then
   -- User defines connection properties
   table.insert(graphics,{Type="GroupBox",Text="Connect",Fill=colors.Background,StrokeWidth=1,CornerRadius=4,HTextAlign="Left",Position={5,5},Size={400,120}})
-  if props["Connection Type"].Value=="Ethernet" then 
-    table.insert(graphics,{Type="Text",Text="IP Address",Position={15,35},Size={100,16},FontSize=14,HTextAlign="Right"})
-    layout["IPAddress"] = {PrettyName="Settings~IP Address",Style="Text",Color=colors.White,Position={120,35},Size={99,16},FontSize=12}
-    table.insert(graphics,{Type="Text",Text="Port",Position={15,60},Size={100,16},FontSize=14,HTextAlign="Right"})
-    layout["TcpPort"] = {PrettyName="Settings~Port",Style="Text",Position={120,60},Size={99,16},FontSize=12}
-    table.insert(graphics,{Type="Text",Text="(5000 default)",Position={221,60},Size={100,18},FontSize=10,HTextAlign="Left"})
-    --layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={325,48}, Size={50,20} }
-    --table.insert(graphics,{Type="Text",Text="Reboot",Position={315,35},Size={70,14},FontSize=12,HTextAlign="Center",Color=colors.Text})
-  else
+  if props["Connection Type"].Value=="Serial" then 
     table.insert(graphics,{Type="Text",Text="Reset Serial",Position={5,32},Size={110,16},FontSize=14,HTextAlign="Right"})
     layout["Reset"] = {PrettyName="Settings~Reset Serial", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={120,30}, Size={50,20} }
     --table.insert(graphics,{Type="Text",Text="Reboot",Position={15,57},Size={100,16},FontSize=14,HTextAlign="Right"})
     --layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={120,55}, Size={50,20} }
+  else
+    table.insert(graphics,{Type="Text",Text="IP Address",Position={15,35},Size={100,16},FontSize=14,HTextAlign="Right"})
+    layout["IPAddress"] = {PrettyName="Settings~IP Address",Style="Text",Color=colors.White,Position={120,35},Size={99,16},FontSize=12}
+    table.insert(graphics,{Type="Text",Text="Port",Position={15,60},Size={100,16},FontSize=14,HTextAlign="Right"})
+    layout["NetworkPort"] = {PrettyName="Settings~Port",Style="Text",Position={120,60},Size={99,16},FontSize=12}
+    if props["Connection Type"].Value=="TCP" then 
+      table.insert(graphics,{Type="Text",Text="(default TCP:5000)",Position={221,60},Size={100,18},FontSize=10,HTextAlign="Left"})
+    elseif props["Connection Type"].Value=="UDP" then 
+      table.insert(graphics,{Type="Text",Text="(default UDP:50000)",Position={221,60},Size={100,18},FontSize=10,HTextAlign="Left"})
+    end
+    --layout["Reboot"] = {PrettyName="Power~Reboot", Style="Button", Color=colors.Button, FontColor=colors.Red, FontSize=14, CornerRadius=2, Position={325,48}, Size={50,20} }
+    --table.insert(graphics,{Type="Text",Text="Reboot",Position={315,35},Size={70,14},FontSize=12,HTextAlign="Center",Color=colors.Text})
   end
-  table.insert(graphics,{Type="Text",Text="Device ID",Position={15,85},Size={100,16},FontSize=14,HTextAlign="Right"})
+table.insert(graphics,{Type="Text",Text="Device ID",Position={15,85},Size={100,16},FontSize=14,HTextAlign="Right"})
   layout["DeviceID"] = {PrettyName="Settings~Device ID Number", Style="Text", FontColor=colors.Text, Position={120,85}, Size={99,16}, FontSize=12}
 
   -- Status fields updated upon connect show model/name/serial/sw rev

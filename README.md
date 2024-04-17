@@ -63,6 +63,7 @@ Kramer protocol 3000 is a very loose protocol, Every Kramer device has it's own 
 * Analog and Digital audio matrix switching including input and output embed and de-embed (buttons only visible when AFV is turned off).
 * Displaying device information (SN, Version)
 * Custom string insertion
+* TCP and UDP control
   
 ### Features not tested
 

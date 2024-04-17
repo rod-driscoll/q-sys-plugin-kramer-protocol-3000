@@ -17,7 +17,7 @@ table.insert(ctrls, {
   PinStyle     = "Both"
 })
 table.insert(ctrls, {
-  Name         = "TcpPort",
+  Name         = "NetworkPort",
   ControlType  = "Knob",
   ControlUnit  = "Integer",
   DefaultValue = 5000,

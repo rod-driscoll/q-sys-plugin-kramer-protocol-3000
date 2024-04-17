@@ -3,7 +3,8 @@ local helper = require('helpers')
 -- Control aliases
 Status = Controls.Status
 
-local SimulateFeedback = System.IsEmulating
+--local SimulateFeedback = System.IsEmulating
+local SimulateFeedback = false
 -- Variables and flags
 DebugTx=false
 DebugRx=false
@@ -21,6 +22,7 @@ ConnectionType = Properties["Connection Type"].Value
 DataBuffer = ""
 CommandQueue = {}
 CommandProcessing = false
+CurrentCommand = {}
 --Internal command timeout
 CommandTimeout = 5
 if System.IsEmulating then CommandTimeout = 120 end
@@ -183,269 +185,6 @@ end
 -------------------------------------------------------------------------------
 -- Device functions
 -------------------------------------------------------------------------------
-
-function Connected()
-	if DebugFunction then print("Connected() Called") end
-	CommunicationTimer:Stop()
-	Heartbeat:Start(PollRate)
-	CommandProcessing = false
-	if Controls["DeviceName"].String == "" then	GetDeviceInfo() end
-	QueryRoutes()
-	SendNextCommand()
-	end
-
-
---[[  Communication format
-	All commands are hex bytes of the format:
-	Header   CommandName   Constant   Parameters   Suffix
-		#     <Command>       0x20    <Data>  0x0d
-
-	Both Serial and TCP mode must contain functions:
-	Connect()
-	And a receive handler that passes data to ParseData()
-]]
-
--- Take a request object and queue it for sending.  Object format is of:
---  { Command=string, Data={string} }
-function Send(cmd, sendImmediately)
-	local value = "#".. cmd.Command .. " " .. cmd.Data
-	if DebugFunction then print("DoSend("..value..") Called") end
-	value = value .. '\x0D'
-	--Check for if a command is already queued
-	for i, val in ipairs(CommandQueue) do
-		if(val == value)then
-			--Some Commands should be sent immediately
-			if sendImmediately then
-				--remove other copies of a command and move to head of the queue
-				table.remove(CommandQueue,i)
-				if DebugTx then print("Sending: "..GetPrintableHexString(value)) end
-				table.insert(CommandQueue,1,value)
-			end
-			return
-		end
-	end
-	--Queue the command if it wasn't found
-	table.insert(CommandQueue,value)
-	SendNextCommand()
-end
-
---Timeout functionality
--- Close the current and start a new connection with the next command
--- This was included due to behaviour within the Comms Serial; may be redundant check on TCP mode
-CommunicationTimer.EventHandler = function()
-	if DebugFunction then print("Ethernet Socket Handler Called("..tostring(evt)..")") end
-	ReportStatus("MISSING","Communication Timeout")
-	CommunicationTimer:Stop()
-	CommandProcessing = false
-	SendNextCommand()
-end 
-
-	--  Serial mode Command function  --
-if ConnectionType == "Serial" then
-	print("Serial Mode Initializing...")
-	-- Create Serial Connection
-	Comms = SerialPorts[1]
-	Baudrate, DataBits, Parity = 9600, 8, "N"
-
-	--Send the display the next command off the top of the queue
-	function SendNextCommand()
-	--if DebugFunction then print("SendNextCommand() Called") end
-	if CommandProcessing then
-		-- Do Nothing
-	elseif #CommandQueue > 0 then
-		CommandProcessing = true
-		if DebugTx then print("Sending: "..GetPrintableHexString(CommandQueue[1])) end
-		Comms:Write( table.remove(CommandQueue,1) )
-		CommunicationTimer:Start(CommandTimeout)
-	else
-		CommunicationTimer:Stop()
-	end
-	end
-
-	function Disconnected()
-		if DebugFunction then print("Disconnected() Called") end
-		CommunicationTimer:Stop() 
-		CommandQueue = {}
-		Heartbeat:Stop()
-	end
-	
-		-- Clear old and open the socket, sending the next queued command
-	function Connect()
-		if DebugFunction then print("Connect() Called") end
-		Comms:Close()
-		Comms:Open(Baudrate, DataBits, Parity)
-	end
-
-	-- Handle events from the serial port
-	Comms.Connected = function(serialTable)
-		if DebugFunction then print("Connected handler called Called") end
-		ReportStatus("OK","")
-		Connected()
-	end
-	
-	Comms.Reconnect = function(serialTable)
-		if DebugFunction then print("Reconnect handler called Called") end
-		Connected()
-	end
-	
-	Comms.Data = function(serialTable, data)
-		ReportStatus("OK","")
-		CommunicationTimer:Stop() 
-		CommandProcessing = false
-		local msg = DataBuffer .. Comms:Read(1024)
-		DataBuffer = "" 
-		if DebugTx then print("Received: "..GetPrintableHexString(msg)) end
-		ParseResponse(msg)
-		SendNextCommand()
-	end
-	
-	Comms.Closed = function(serialTable)
-		if DebugFunction then print("Closed handler called Called") end
-		Disconnected()
-		ReportStatus("MISSING","Connection closed")
-	end
-	
-	Comms.Error = function(serialTable, error)
-		if DebugFunction then print("Socket Error handler called Called") end
-		Disconnected()
-		ReportStatus("MISSING",error)
-	end
-	
-	Comms.Timeout = function(serialTable, error)
-		if DebugFunction then print("Socket Timeout handler called Called") end
-		Disconnected()
-		ReportStatus("MISSING","Serial Timeout")
-	end
-
-	--[[
-	Controls["Reset"].EventHandler = function()
-		if DebugFunction then print("Reset handler called Called") end
-		PowerupTimer:Stop()
-		ClearVariables()
-		Disconnected()
-		Connect()
-	end
-	]]
-	
-	--  Ethernet Command Function  --
-else
-	print("TCP Mode Initializing...")
-	IPAddress = Controls.IPAddress
-	Port = Controls.TcpPort
-	-- Create Sockets
-	Comms = TcpSocket.New()
-	Comms.ReconnectTimeout = 5
-	Comms.ReadTimeout = 10  --Tested to verify 6 seconds necessary for input switches;  Appears some TV behave mroe slowly
-	Comms.WriteTimeout = 10
-
-	--Send the display the next command off the top of the queue
-	function SendNextCommand()
-		--if DebugFunction then print("SendNextCommand() Called") end
-		if CommandProcessing then
-		-- Do Nothing
-		elseif #CommandQueue > 0 then
-			if not Comms.IsConnected then
-				Connect()
-			else
-				CommandProcessing = true
-				if DebugTx then print("Sending: "..GetPrintableHexString(CommandQueue[1])) end
-				Comms:Write( table.remove(CommandQueue,1) )
-			end
-		end
-		end
-	
-	function Disconnected()
-		if DebugFunction then print("Disconnected() Called") end
-		if Comms.IsConnected then
-			Comms:Disconnect()
-		end
-		CommandQueue = {}
-		Heartbeat:Stop()
-	end
-	
-	-- Clear old and open the socket
-	function Connect()
-		if DebugFunction then print("Connect() Called") end
-		if IPAddress.String ~= "Enter an IP Address" and IPAddress.String ~= "" then
-		if Comms.IsConnected then
-			Comms:Disconnect()
-		end
-		Comms:Connect(IPAddress.String, Port.Value)
-		else
-			ReportStatus("MISSING","No IP Address")
-		end
-	end
-		
-	-- Handle events from the socket;  Nearly identical to Serial
-	Comms.EventHandler = function(sock, evt, err)
-		if DebugFunction then print("Ethernet Socket Handler Called("..tostring(evt)..")") end
-		if evt == TcpSocket.Events.Connected then
-		ReportStatus("OK","")
-		Connected()
-		elseif evt == TcpSocket.Events.Reconnect then
-		--Disconnected()
-	
-		elseif evt == TcpSocket.Events.Data then
-		ReportStatus("OK","")
-		CommandProcessing = false
-		TimeoutCount = 0
-		local line = sock:Read(BufferLength)
-		local msg = DataBuffer
-		DataBuffer = "" 
-		while (line ~= nil) do
-			msg = msg..line
-			line = sock:Read(BufferLength)
-		end
-		if DebugTx then print("Received: "..GetPrintableHexString(msg)) end
-		ParseResponse(msg)  
-		SendNextCommand()
-		
-		elseif evt == TcpSocket.Events.Closed then
-		Disconnected()
-		ReportStatus("MISSING","Socket closed")
-	
-		elseif evt == TcpSocket.Events.Error then
-		Disconnected()
-		ReportStatus("MISSING","Socket error")
-	
-		elseif evt == TcpSocket.Events.Timeout then
-		TimeoutCount = TimeoutCount + 1
-		if TimeoutCount > 3 then
-			Disconnected()
-			ReportStatus("MISSING","Socket Timeout")
-		end
-	
-		else
-		Disconnected()
-		ReportStatus("MISSING",err)
-	
-		end
-	end
-
-	--Ethernet specific event handlers
-	Controls["IPAddress"].EventHandler = function()
-		if DebugFunction then print("IP Address Event Handler Called") end
-		ClearVariables()
-		if Controls["IPAddress"].String == "" then
-			Controls["IPAddress"].String = "Enter an IP Address"
-		end
-		Initialize()
-	end
-
-	Controls["TcpPort"].EventHandler = function()
-		if DebugFunction then print("Port Event Handler Called") end
-		ClearVariables()
-		Initialize()
-	end
-
-	Controls["DeviceID"].EventHandler = function()
-		if DebugFunction then print("DeviceID Event Handler Called") end
-		ClearVariables()
-		Initialize()
-	end
-
-end
-
 function Query(cmd)
 	Send({
 		Command = cmd.Command .. "?",
@@ -492,8 +231,20 @@ function PrintError(msg)
 		[34] = 'ERR_NOT_CONFIGURED'
 	}
 	if codes_[tonumber(msg)]~=nil then
-		if DebugFunction then print('ERROR: '..codes_[tonumber(msg)]) end
-	end
+		if DebugFunction then print('ERROR: '..codes_[tonumber(msg)].." CurrentCommand: "..CurrentCommand) end
+    if tonumber(msg) == 2 then --ERR_COMMAND_NOT_AVAILABLE
+		  --if DebugFunction then print('ERR_COMMAND_NOT_AVAILABLE') end
+      local m_ = CurrentCommand:match("^#([^ %?]+).*$")
+      --local ResponseObj = { ['DeviceID']=m1_, ['Command']=m2_, ['Data']=m3_ }
+      --if DebugFunction then print('Command: '..m_) end
+			for k,v in pairs(Request) do
+      if v.Command == m_ then 
+          print('flagging "'..m_..'" as Unsupported')
+          v['Unsupported'] = true
+        end
+			end    
+    end
+  end
 end
 
 local current_source = {}
@@ -502,11 +253,13 @@ function SetVideoChoicesFeedback(output)
 	--if DebugFunction and output==1 then print("SetVideoChoicesFeedback("..output..")") end
 	current_source[Layers.Video] 				 = current_source[Layers.Video] or {}
 	current_source[Layers.Video][output] = current_source[Layers.Video][output] or 0
-	if current_source[Layers.Video][output]==0 then
-		Controls["output_"..output.."-source"].String = ""		
-	else
-		Controls["output_"..output.."-source"].String = Controls["input_"..current_source[Layers.Video][output].."-name"].String		
-	end
+	if Controls["output_"..output.."-source"] then
+    if current_source[Layers.Video][output]==0 then
+      Controls["output_"..output.."-source"].String = ""		
+    else
+      Controls["output_"..output.."-source"].String = Controls["input_"..current_source[Layers.Video][output].."-name"].String		
+    end
+  end
 end
 
 function UpdateVideoChoices()
@@ -564,11 +317,13 @@ function SetRouteFeedback(layer, output, input)
 			current_source[layer][output] = input
 			if out_~=nil and out_ <= Properties['Output Count'].Value and in_~=nil and in_ <= Properties['Input Count'].Value then
 				for i=1, Properties['Input Count'].Value do
-					if layer==Layers.Video then
-						Controls["vid-input_"..i.."-output_" ..output].Boolean = (in_==i) 
-					elseif layer==Layers.Audio then    
-						Controls["aud-input_"..i.."-output_" ..output].Boolean = (in_==i) 
-					end   
+          if Controls["vid-input_"..i.."-output_" ..output] then
+            if layer==Layers.Video then
+              Controls["vid-input_"..i.."-output_" ..output].Boolean = (in_==i) 
+            elseif layer==Layers.Audio then    
+              Controls["aud-input_"..i.."-output_" ..output].Boolean = (in_==i) 
+            end   
+          end
 				end
 			end
 			if layer==Layers.Video then SetVideoChoicesFeedback(output) end
@@ -822,9 +577,10 @@ function HandleResponse(msg)
 	elseif msg.Command==Request["Label"].Command then
 		if DebugFunction then print("Label: "..msg["Data"]) end
 		local io_ = vals_[1]=='0' and 'in' or 'out'
-		Controls[io_ .. "put_" .. vals_[2] .. "-name"].String = vals_[4]
+    if Controls[io_ .. "put_" .. vals_[2] .. "-name"] then
+		  Controls[io_ .. "put_" .. vals_[2] .. "-name"].String = vals_[4]
+    end
 		if io_=='in' then UpdateVideoChoices() end
-
 	--Audio
 	elseif msg.Command==Request["AudioEmbedding"].Command then
 		if DebugFunction then print("Embed: "..msg["Data"]) end
@@ -864,7 +620,9 @@ function HandleResponse(msg)
 			print("output: "..vals_[1].." mute: "..vals_[2]) 
 		end
 		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
-			Controls["output_"..vals_[1].."-mute"].Boolean = (vals_[2]=="1") 
+			if Controls["output_"..vals_[1].."-mute"] then 
+			  Controls["output_"..vals_[1].."-mute"].Boolean = (vals_[2]=="1") 
+      end
 		end
 		
 	elseif msg.Command==Request["AudioSignalPresent"].Command then
@@ -872,9 +630,8 @@ function HandleResponse(msg)
 		if DebugFunction and #vals_>1 then 
 			print("aud-input_"..vals_[1].."-signal: "..vals_[2]) 
 		end
-		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
-			--Controls["input_"..vals_[1].."-signal"].Boolean = (vals_[2]=='1')
-			Controls["input_"..vals_[1].."-signal"].Boolean = true
+		if Controls["input_"..vals_[1].."-signal"] then
+			Controls["input_"..vals_[1].."-signal"].Boolean = (vals_[2]=='1') 
 		end
 		
 	elseif msg.Command==Request["AudioLevel"].Command then
@@ -883,19 +640,20 @@ function HandleResponse(msg)
 		if DebugFunction and #vals_>2 then 
 			print(layerName_.."_"..vals_[2].."-level: "..vals_[3]) 
 		end
-		if #vals_>2 then
+		if #vals_>2 and Controls[layerName_.."_"..vals_[2].."-level"] then
 			Controls[layerName_.."_"..vals_[2].."-level"].Value = tonumber(vals_[3]) 
 		end
 		
 	elseif msg.Command==Request["Volume"].Command then
 		if DebugFunction then print("Volume: "..msg["Data"]) end
 		local val_ = tonumber(vals_[2])  --TODO: convert this to a log
-		if val_ > 50 then
-			Controls["output_"..vals_[1].."-level"].Value = (tonumber(vals_[2])-50)/2 -- 51 to 100 is (1 to 24)
-		else
-			Controls["output_"..vals_[1].."-level"].Value = (tonumber(vals_[2])-50)*83/51 -- 0 to 50 is (-83 to 0)
-		end
-
+		if Controls["output_"..vals_[1].."-level"] then
+      if val_ > 50 then
+        Controls["output_"..vals_[1].."-level"].Value = (tonumber(vals_[2])-50)/2 -- 51 to 100 is (1 to 24)
+      else
+        Controls["output_"..vals_[1].."-level"].Value = (tonumber(vals_[2])-50)*83/51 -- 0 to 50 is (-83 to 0)
+      end
+    end
 	elseif msg.Command==Request["AudioFollowVideo"].Command then
 		if DebugFunction then print("AudioFollowVideo: "..msg["Data"]) end
 		Controls["AFV"].Boolean = (msg.Data=='0')
@@ -914,7 +672,7 @@ function HandleResponse(msg)
 		if DebugFunction and #vals_>1 then 
 			print("vid-input_"..vals_[1].."-signal: "..vals_[2]) 
 		end
-		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
+		if Controls["vid-input_"..vals_[1].."-signal"] then
 			Controls["vid-input_"..vals_[1].."-signal"].Boolean = (vals_[2]=='1') 
 		end
 
@@ -938,8 +696,8 @@ function HandleResponse(msg)
 		if DebugFunction and #vals_>2 then 
 			print("output: "..vals_[1].." video mute: "..vals_[2]) 
 		end
-		if #vals_>1 and tonumber(vals_[1]) <= Properties['Output Count'].Value then
-			Controls["output_"..vals_[1].."-disable"].Boolean = (vals_[2]=="1") --1:disabled, 1:enabled, 2:blank(not all models)
+		if Controls["output_"..vals_[1].."-disable"] then
+			Controls["output_"..vals_[1].."-disable"].Boolean = (vals_[2]=="1") --0:disabled, 1:enabled, 2:blank(not all models)
 		end
 
 	elseif msg.Command==Request["Route"].Command then -- "ROUTE 1,2,3" (laver, output, input) or "ROUTE 1,1,1,1,1,1,1,1" (each val is an output-it could be any layer though)
@@ -1076,7 +834,7 @@ end
 local function SetOutputDisable(index, value)
 	if DebugFunction then print("Set output " .. index .. " video mute to " .. tostring(value)) end
 	local cmd_ = Request["VideoMute"]
-	cmd_.Data = index..','.. (value and '0' or '1') -- 0:disabled, 1:enabled, 2:blank(not all models)
+	cmd_.Data = index..','.. (value and '1' or '0') -- 0:disabled, 1:enabled, 2:blank(not all models)
 
 	Send(cmd_)
 	--if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
@@ -1098,6 +856,306 @@ local function SetInputLabel(index, value)
 	--cmd_.Data = '0,'.. index .. ',1,' .. value -- the extra 1 is for enable custom label
 	Send(cmd_)
 	--if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end
+end
+
+
+function Connected()
+	if DebugFunction then print("Connected() Called") end
+	CommunicationTimer:Stop()
+	Heartbeat:Start(PollRate)
+	CommandProcessing = false
+	if Controls["DeviceName"].String == "" then	GetDeviceInfo() end
+	QueryRoutes()
+	SendNextCommand()
+	end
+
+
+--[[  Communication format
+	All commands are hex bytes of the format:
+	Header   CommandName   Constant   Parameters   Suffix
+		#     <Command>       0x20    <Data>  0x0d
+
+	Both Serial and TCP mode must contain functions:
+	Connect()
+	And a receive handler that passes data to ParseData()
+]]
+
+-- Take a request object and queue it for sending.  Object format is of:
+--  { Command=string, Data={string} }
+function Send(cmd, sendImmediately) 
+  if cmd['Unsupported'] then
+    if DebugFunction then print("DoSend("..cmd.Command..") command not supported") end
+  else
+    local value = "#".. cmd.Command .. " " .. cmd.Data
+    if DebugFunction then print("DoSend("..value..") Called") end
+    value = value .. '\x0D'
+    --Check for if a command is already queued
+    for i, val in ipairs(CommandQueue) do
+      if(val == value)then
+        --Some Commands should be sent immediately
+        if sendImmediately then
+          --remove other copies of a command and move to head of the queue
+          table.remove(CommandQueue,i)
+          if DebugTx then print("Sending: "..GetPrintableHexString(value)) end
+          table.insert(CommandQueue,1,value)
+        end
+        return
+      end
+    end
+    --Queue the command if it wasn't found
+    table.insert(CommandQueue,value)
+    SendNextCommand()
+  end
+end
+
+--Timeout functionality
+-- Close the current and start a new connection with the next command
+-- This was included due to behaviour within the Comms Serial; may be redundant check on TCP mode
+CommunicationTimer.EventHandler = function()
+	if DebugFunction then print("CommunicationTimer.EventHandler") end
+	ReportStatus("MISSING","Communication Timeout")
+	CommunicationTimer:Stop()
+	CommandProcessing = false
+	SendNextCommand()
+end 
+
+print(ConnectionType.." Mode Initializing...")
+	--  Serial mode Command function  --
+if ConnectionType == "Serial" then
+	-- Create Serial Connection
+	Comms = SerialPorts[1]
+	Baudrate, DataBits, Parity = 9600, 8, "N"
+
+	--Send the next command off the top of the queue
+	function SendNextCommand()
+		--if DebugFunction then print("SendNextCommand() Called") end
+		if CommandProcessing then
+			-- Do Nothing
+		elseif #CommandQueue > 0 then
+			CommandProcessing = true
+		  CurrentCommand = table.remove(CommandQueue,1)
+			if DebugTx then print("Sending: "..GetPrintableHexString(CurrentCommand)) end
+			Comms:Write( CurrentCommand )
+			CommunicationTimer:Start(CommandTimeout)
+		else
+			CommunicationTimer:Stop()
+		end
+	end
+
+	function Disconnected()
+		if DebugFunction then print("Disconnected() Called") end
+		CommunicationTimer:Stop() 
+		CommandQueue = {}
+		Heartbeat:Stop()
+	end
+	
+		-- Clear old and open the socket, sending the next queued command
+	function Connect()
+		if DebugFunction then print("Connect() Called") end
+		Comms:Close()
+		Comms:Open(Baudrate, DataBits, Parity)
+	end
+
+	-- Handle events from the serial port
+	Comms.Connected = function(serialTable)
+		if DebugFunction then print("Connected handler called Called") end
+		ReportStatus("OK","")
+		Connected()
+	end
+	
+	Comms.Reconnect = function(serialTable)
+		if DebugFunction then print("Reconnect handler called Called") end
+		Connected()
+	end
+	
+	Comms.Data = function(serialTable, data)
+		ReportStatus("OK","")
+		CommunicationTimer:Stop() 
+		CommandProcessing = false
+		local msg = DataBuffer .. Comms:Read(1024)
+		DataBuffer = "" 
+		if DebugTx then print("Received: "..GetPrintableHexString(msg)) end
+		ParseResponse(msg)
+		SendNextCommand()
+	end
+	
+	Comms.Closed = function(serialTable)
+		if DebugFunction then print("Closed handler called Called") end
+		Disconnected()
+		ReportStatus("MISSING","Connection closed")
+	end
+	
+	Comms.Error = function(serialTable, error)
+		if DebugFunction then print("Socket Error handler called Called") end
+		Disconnected()
+		ReportStatus("MISSING",error)
+	end
+	
+	Comms.Timeout = function(serialTable, error)
+		if DebugFunction then print("Socket Timeout handler called Called") end
+		Disconnected()
+		ReportStatus("MISSING","Serial Timeout")
+	end
+
+	--[[
+	Controls["Reset"].EventHandler = function()
+		if DebugFunction then print("Reset handler called Called") end
+		PowerupTimer:Stop()
+		ClearVariables()
+		Disconnected()
+		Connect()
+	end
+	]]
+	
+	--  Ethernet Command Function  --
+elseif ConnectionType == "TCP" then
+	IPAddress = Controls.IPAddress
+	if Controls.NetworkPort.Value == 0 then Controls.NetworkPort.Value = 5000 end
+	Port = Controls.NetworkPort
+	-- Create Sockets
+	Comms = TcpSocket.New()
+	Comms.ReconnectTimeout = 5
+	Comms.ReadTimeout = 10  --Tested to verify 6 seconds necessary for input switches;  Appears some TV behave mroe slowly
+	Comms.WriteTimeout = 10
+
+	--Send the next command off the top of the queue
+	function SendNextCommand()
+		--if DebugFunction then print("SendNextCommand() Called") end
+		if CommandProcessing then
+		-- Do Nothing
+		elseif #CommandQueue > 0 then
+			if not Comms.IsConnected then
+				Connect()
+			else
+				CommandProcessing = true
+			  CurrentCommand = table.remove(CommandQueue,1)
+				if DebugTx then print("Sending: "..GetPrintableHexString(CurrentCommand)) end
+				Comms:Write( CurrentCommand )
+			end
+		end
+	end
+	
+	function Disconnected()
+		if DebugFunction then print("Disconnected() Called") end
+		if Comms.IsConnected then
+			Comms:Disconnect()
+		end
+		CommandQueue = {}
+		Heartbeat:Stop()
+	end
+	
+	-- Clear old and open the socket
+	function Connect()
+		if DebugFunction then print("Connect() Called") end
+		if IPAddress.String ~= "Enter an IP Address" and IPAddress.String ~= "" then
+		if Comms.IsConnected then
+			Comms:Disconnect()
+		end
+		Comms:Connect(IPAddress.String, Port.Value)
+		else
+			ReportStatus("MISSING","No IP Address")
+		end
+	end
+		
+	-- Handle events from the socket;  Nearly identical to Serial
+	Comms.EventHandler = function(sock, evt, err)
+		if DebugFunction then print("Ethernet Socket Handler Called("..tostring(evt)..")") end
+		if evt == TcpSocket.Events.Connected then
+			ReportStatus("OK","")
+			Connected()
+		elseif evt == TcpSocket.Events.Reconnect then
+			--Disconnected()
+	
+		elseif evt == TcpSocket.Events.Data then
+			ReportStatus("OK","")
+			CommandProcessing = false
+			TimeoutCount = 0
+			local line = sock:Read(BufferLength)
+			local msg = DataBuffer
+			DataBuffer = "" 
+			while (line ~= nil) do
+				msg = msg..line
+				line = sock:Read(BufferLength)
+			end
+			if DebugTx then print("Received: "..GetPrintableHexString(msg)) end
+			ParseResponse(msg)  
+			SendNextCommand()
+			
+		elseif evt == TcpSocket.Events.Closed then
+			Disconnected()
+			ReportStatus("MISSING","Socket closed")
+	
+		elseif evt == TcpSocket.Events.Error then
+			Disconnected()
+			ReportStatus("MISSING","Socket error")
+	
+		elseif evt == TcpSocket.Events.Timeout then
+			TimeoutCount = TimeoutCount + 1
+			if TimeoutCount > 3 then
+				Disconnected()
+				ReportStatus("MISSING","Socket Timeout")
+			end
+	
+		else
+			Disconnected()
+			ReportStatus("MISSING",err)
+	
+		end
+	end
+elseif ConnectionType == "UDP" then
+	IPAddress = Controls.IPAddress
+	if Controls.NetworkPort.Value <= 1 then Controls.NetworkPort.Value = 50000 end
+	Port = Controls.NetworkPort
+	-- Create Sockets
+	Comms = UdpSocket.New()
+
+	--Send the next command off the top of the queue
+	function SendNextCommand()
+		--if DebugFunction then print("SendNextCommand() Called") end
+		if CommandProcessing then
+			-- Do Nothing
+		elseif #CommandQueue > 0 then
+			CommandProcessing = true
+		  if IPAddress.String ~= "Enter an IP Address" and IPAddress.String ~= "" then
+        --print("Sending to "..IPAddress.String..":"..Port.Value)
+			  CurrentCommand = table.remove(CommandQueue,1)
+				if DebugTx then print("Sending: "..GetPrintableHexString(CurrentCommand)) end
+        Comms:Send(IPAddress.String, Port.Value, CurrentCommand )			
+      else
+        print("Address not valid, not sending!")
+      end
+      CommunicationTimer:Start(CommandTimeout)
+		else
+			CommunicationTimer:Stop()
+		end
+	end
+	
+		-- Clear old and open the socket, sending the next queued command
+	function Connect()
+		Comms:Close(Port.Value)
+    Comms:Open("0.0.0.0", Port.Value)
+    Connected()
+	end
+	Connect()
+
+	function Disconnected()
+		if DebugFunction then print("Disconnected() Called") end
+		Comms:Close(Port.Value)
+		CommandQueue = {}
+		Heartbeat:Stop()
+	end
+
+	Comms.EventHandler = function(socket, packet)
+		ReportStatus("OK","")
+		CommunicationTimer:Stop() 
+		CommandProcessing = false
+		local msg = DataBuffer .. packet.Data
+		DataBuffer = "" 
+		if DebugTx then print("Received: "..GetPrintableHexString(msg)) end
+		ParseResponse(msg)
+		SendNextCommand()
+	end
+	
 end
 
 -------------------------------------------------------------------------------
@@ -1136,11 +1194,20 @@ function Initialize()
 	if DebugFunction then print("Initialize() Called: "..GetPrettyName()) end
 	--helper.TablePrint(Controls, 1)
 	-- EventHandlers
+  
+	Controls["IPAddress"].EventHandler = function(ctl)
+		Connect()
+	end
+  
+	Controls["NetworkPort"].EventHandler = function(ctl)
+		Connect()
+	end
+
 	Controls["AFV"].EventHandler = function(ctl) 
 		if DebugFunction then print("Audio follow video pressed") end
 		SetAudioFollowVideo(ctl.Boolean)
 	end
-
+ 
 	Controls["SendString"].EventHandler = function(ctl) 
 		if DebugFunction then print("SendString called: "..ctl.String) end
 		local value = ctl.String .. 0x0d

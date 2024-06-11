@@ -755,7 +755,7 @@ local function SetAvRoute(dest, src, state) -- "AV 1>2"
 		if DebugFunction then print("Send src " .. src .. " to dest " .. dest) end
 	end
 	if dest == 0 then dest = '*' end -- all
-	local cmd_ = Request["VideoRoute"]
+	local cmd_ = Controls['AFV'].Boolean and Request["AvRoute"] or Request["VideoRoute"]
 	cmd_.Data = src..'>'.. dest
 	Send(cmd_)
 	if SimulateFeedback then ParseResponse(string.format("~%02X@%s %s\x0d\x0a", Controls['DeviceID'].Value, cmd_.Command, cmd_.Data)) end

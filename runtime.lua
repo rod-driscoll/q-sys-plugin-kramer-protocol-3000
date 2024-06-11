@@ -34,6 +34,8 @@ local AudioLayer = { Analog = 0, Digital = 1 }
 local QueryRouteType = Layers.Video
 local UpdatingVideoChoices = false
 
+local NoSourceName = "No source"
+
 --Hide controls that are just for pins
 --Controls["ModelNumber"].IsInvisible=true
 --Controls["PanelType"].IsInvisible=true
@@ -192,46 +194,48 @@ function Query(cmd)
 	})
 end
 
+local error_codes = {
+  [0] = 'P3K_NO_ERROR',
+  [1] = 'ERR_PROTOCOL_SYNTAX',
+  [2] = 'ERR_COMMAND_NOT_AVAILABLE',
+  [3] = 'ERR_PARAMETER_OUT_OF_RANGE',
+  [4] = 'ERR_UNAUTHORIZED_ACCESS',
+  [5] = 'ERR_INTERNAL_FW_ERROR',
+  [6] = 'ERR_BUSY',
+  [7] = 'ERR_WRONG_CRC',
+  [8] = 'ERR_TIMEDOUT',
+  [9] = 'ERR_RESERVED',
+  [10] = 'ERR_FW_NOT_ENOUGH_SPACE',
+  [11] = 'ERR_FS_NOT_ENOUGH_SPACE',
+  [12] = 'ERR_FS_FILE_NOT_EXISTS',
+  [13] = 'ERR_FS_FILE_CANT_CREATED',
+  [14] = 'ERR_FS_FILE_CANT_OPEN',
+  [15] = 'ERR_FEATURE_NOT_SUPPORTED',
+  [16] = 'ERR_RESERVED_2',
+  [17] = 'ERR_RESERVED_3',
+  [18] = 'ERR_RESERVED_4',
+  [19] = 'ERR_RESERVED_5',
+  [20] = 'ERR_RESERVED_6',
+  [21] = 'ERR_PACKET_CRC',
+  [22] = 'ERR_PACKET_MISSED',
+  [23] = 'ERR_PACKET_SIZE',
+  [24] = 'ERR_RESERVED_7',
+  [25] = 'ERR_RESERVED_8',
+  [26] = 'ERR_RESERVED_9',
+  [27] = 'ERR_RESERVED_10',
+  [28] = 'ERR_RESERVED_11',
+  [29] = 'ERR_RESERVED_12',
+  [30] = 'ERR_EDID_CORRUPTED',
+  [31] = 'ERR_NON_LISTED',
+  [32] = 'ERR_SAME_CRC',
+  [33] = 'ERR_WRONG_MODE',
+  [34] = 'ERR_NOT_CONFIGURED'
+}
+
 function PrintError(msg)
-	local codes_ = {
-		[0] = 'P3K_NO_ERROR',
-		[1] = 'ERR_PROTOCOL_SYNTAX',
-		[2] = 'ERR_COMMAND_NOT_AVAILABLE',
-		[3] = 'ERR_PARAMETER_OUT_OF_RANGE',
-		[4] = 'ERR_UNAUTHORIZED_ACCESS',
-		[5] = 'ERR_INTERNAL_FW_ERROR',
-		[6] = 'ERR_BUSY',
-		[7] = 'ERR_WRONG_CRC',
-		[8] = 'ERR_TIMEDOUT',
-		[9] = 'ERR_RESERVED',
-		[10] = 'ERR_FW_NOT_ENOUGH_SPACE',
-		[11] = 'ERR_FS_NOT_ENOUGH_SPACE',
-		[12] = 'ERR_FS_FILE_NOT_EXISTS',
-		[13] = 'ERR_FS_FILE_CANT_CREATED',
-		[14] = 'ERR_FS_FILE_CANT_OPEN',
-		[15] = 'ERR_FEATURE_NOT_SUPPORTED',
-		[16] = 'ERR_RESERVED_2',
-		[17] = 'ERR_RESERVED_3',
-		[18] = 'ERR_RESERVED_4',
-		[19] = 'ERR_RESERVED_5',
-		[20] = 'ERR_RESERVED_6',
-		[21] = 'ERR_PACKET_CRC',
-		[22] = 'ERR_PACKET_MISSED',
-		[23] = 'ERR_PACKET_SIZE',
-		[24] = 'ERR_RESERVED_7',
-		[25] = 'ERR_RESERVED_8',
-		[26] = 'ERR_RESERVED_9',
-		[27] = 'ERR_RESERVED_10',
-		[28] = 'ERR_RESERVED_11',
-		[29] = 'ERR_RESERVED_12',
-		[30] = 'ERR_EDID_CORRUPTED',
-		[31] = 'ERR_NON_LISTED',
-		[32] = 'ERR_SAME_CRC',
-		[33] = 'ERR_WRONG_MODE',
-		[34] = 'ERR_NOT_CONFIGURED'
-	}
-	if codes_[tonumber(msg)]~=nil then
-		if DebugFunction then print('ERROR: '..codes_[tonumber(msg)].." CurrentCommand: "..CurrentCommand) end
+	if error_codes[tonumber(msg)]~=nil then
+  print("PrintError exists")
+		if DebugFunction then print('ERROR: '..error_codes[tonumber(msg)].." CurrentCommand: "..CurrentCommand) end
     if tonumber(msg) == 2 then --ERR_COMMAND_NOT_AVAILABLE
 		  --if DebugFunction then print('ERR_COMMAND_NOT_AVAILABLE') end
       local m_ = CurrentCommand:match("^#([^ %?]+).*$")
@@ -254,8 +258,8 @@ function SetVideoChoicesFeedback(output)
 	current_source[Layers.Video] 				 = current_source[Layers.Video] or {}
 	current_source[Layers.Video][output] = current_source[Layers.Video][output] or 0
 	if Controls["output_"..output.."-source"] then
-    if current_source[Layers.Video][output]==0 then
-      Controls["output_"..output.."-source"].String = ""		
+    if current_source[Layers.Video][output]=='0' then
+      Controls["output_"..output.."-source"].String = NoSourceName
     else
       Controls["output_"..output.."-source"].String = Controls["input_"..current_source[Layers.Video][output].."-name"].String		
     end
@@ -268,6 +272,7 @@ function UpdateVideoChoices()
 		Timer.CallAfter(function()
 			if DebugFunction then print("UpdateVideoChoices()") end
 			local InputChoices = {}
+			table.insert(InputChoices, NoSourceName)
 			for i=1, Properties['Input Count'].Value do
 				table.insert(InputChoices, Controls["input_"..i.."-name"].String)
 			end
@@ -452,6 +457,12 @@ end
 function HandleResponse(msg)
 	if DebugFunction then print('HandleResponse('..msg.Command..') Called, data: "'..msg.Data..'"') end
 	
+  local match_ = msg["Data"]:match("ERR(%d+)")
+	if match_ then
+		if DebugFunction then PrintError(match_) end
+    return
+  end
+
 	local vals_ = {}
 	for g in string.gmatch(msg["Data"], "[^,]+") do
 		table.insert(vals_, g)
@@ -766,7 +777,7 @@ end
 
 local function SetAudRoute(dest, dest_layer, src, src_layer, state)
 	if(state == 0) then
-		dest = "x"
+		src = 0 --dest = "x"
 		if DebugFunction then print("Disconnecting audio src from all") end
 	else
 		if DebugFunction then print("Send audio src " .. src .. " to dest " .. dest) end
@@ -1283,7 +1294,7 @@ function Initialize()
 				if DebugFunction then print("output_" .. o .. "source changed to: "..ctl.Value) end
 				local i = helper.find_value(ctl.Choices, ctl.String)
 				--SetRoute(Layers.Video, o, i, ctl.Value)
-				SetAvRoute(o, i, true)
+				SetAvRoute(o, i-1, true)
 			end
 
 		end

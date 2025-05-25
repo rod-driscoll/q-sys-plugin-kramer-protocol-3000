@@ -9,11 +9,13 @@
   -- set digital audio to follow video when in AFV mode
   -- toggling an output to no source updates the output source combo box
   -- analog audio route toggle off now works
+-- 20250525 v1.2.0.1 Rod Driscoll<rod@theavitgroup.com.au>
+  -- added dependent functions into main code so there is no longer a need to install dependencies
 
 PluginInfo = {
   Name = "Kramer~Protocol 3000", -- The tilde here indicates folder structure in the Shematic Elements pane
-  Version = "1.2.0.0",
-  BuildVersion = "1.2.0.0",
+  Version = "1.2.0.1",
+  BuildVersion = "1.2.0.1",
   Id = "kramer-protocol-3000.plugin.1.0.0", -- this must be unique per plugin, but don't add version number because the compiler will update it.
   Description = "Plugin implementing Kramer Protocol 3000",
   ShowDebug = true,
@@ -1120,7 +1122,7 @@ end
 
 --Start event based logic
 if Controls then
-  local helper = require('helpers')
+  --local helper = require('helpers')
   
   -- Control aliases
   Status = Controls.Status
@@ -1236,6 +1238,22 @@ if Controls then
   	elseif DebugPrint=="All" then
   		DebugTx,DebugRx,DebugFunction=true,true,true
   	end
+  end
+  
+  function find_value(target, value)
+  	--print("find_value("..value..") type: ", type(target))
+  	if(type(target) == 'table') then
+  		for i,v in pairs(target) do
+  			if v == value then return(i) end
+  		end  
+  	elseif(type(target) == 'array') then
+  		for i,v in ipairs(target) do
+  			if v == value then return(i) end
+  		end
+  	elseif(type(target) == 'string') then
+  		return(target:find(value))
+  	end
+  	return false
   end
   
   -- A function to clear controls/flags/variables and clears tables
@@ -2414,7 +2432,7 @@ if Controls then
   			Controls["output_"..o.."-source"].EventHandler = function(ctl) 
   				if DebugFunction then print("output_" .. o .. "source changed to: "..ctl.String) end
   				if DebugFunction then print("output_" .. o .. "source changed to: "..ctl.Value) end
-  				local i = helper.find_value(ctl.Choices, ctl.String)
+  				local i = find_value(ctl.Choices, ctl.String)
   				--SetRoute(Layers.Video, o, i, ctl.Value)
   				SetAvRoute(o, i-1, true)
   			end

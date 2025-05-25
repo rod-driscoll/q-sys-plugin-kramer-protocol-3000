@@ -1,4 +1,4 @@
-local helper = require('helpers')
+--local helper = require('helpers')
 
 -- Control aliases
 Status = Controls.Status
@@ -114,6 +114,22 @@ function SetupDebugPrint()
 	elseif DebugPrint=="All" then
 		DebugTx,DebugRx,DebugFunction=true,true,true
 	end
+end
+
+function find_value(target, value)
+	--print("find_value("..value..") type: ", type(target))
+	if(type(target) == 'table') then
+		for i,v in pairs(target) do
+			if v == value then return(i) end
+		end  
+	elseif(type(target) == 'array') then
+		for i,v in ipairs(target) do
+			if v == value then return(i) end
+		end
+	elseif(type(target) == 'string') then
+		return(target:find(value))
+	end
+	return false
 end
 
 -- A function to clear controls/flags/variables and clears tables
@@ -1292,7 +1308,7 @@ function Initialize()
 			Controls["output_"..o.."-source"].EventHandler = function(ctl) 
 				if DebugFunction then print("output_" .. o .. "source changed to: "..ctl.String) end
 				if DebugFunction then print("output_" .. o .. "source changed to: "..ctl.Value) end
-				local i = helper.find_value(ctl.Choices, ctl.String)
+				local i = find_value(ctl.Choices, ctl.String)
 				--SetRoute(Layers.Video, o, i, ctl.Value)
 				SetAvRoute(o, i-1, true)
 			end
